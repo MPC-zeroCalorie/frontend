@@ -52,7 +52,7 @@ class _TimerTypeSelectionScreenState extends State<TimerTypeSelectionScreen> {
                   mainAxisAlignment: MainAxisAlignment.center,
                   children: [
                     Text(
-                      '일회용 계획',
+                      '오늘 계획',
                       style: TextStyle(
                         color: _isOneTimeSelected ? Colors.white : Colors.black,
                         fontSize: 16,

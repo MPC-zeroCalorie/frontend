@@ -7,7 +7,6 @@ class FastingPlanScreen extends StatefulWidget {
 }
 
 class _FastingPlanScreenState extends State<FastingPlanScreen> {
-  DateTime? _selectedDate;
   TimeOfDay? _startTime;
   Duration? _fastingDuration;
 
@@ -15,6 +14,7 @@ class _FastingPlanScreenState extends State<FastingPlanScreen> {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
+        title: Text('단식 계획 설정', style: TextStyle(color: Colors.black)),
         backgroundColor: Colors.white,
         elevation: 0,
         leading: IconButton(
@@ -35,15 +35,13 @@ class _FastingPlanScreenState extends State<FastingPlanScreen> {
               style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
             ),
             SizedBox(height: 24),
-            _buildDateField('시작 날짜', _selectedDate),
-            SizedBox(height: 16),
             _buildTimeField('시작 시간', _startTime),
             SizedBox(height: 16),
             _buildDurationField('단식 유지 시간', _fastingDuration),
             SizedBox(height: 16),
             Center(
               child: Text(
-                _selectedDate != null && _startTime != null && _fastingDuration != null
+                _startTime != null && _fastingDuration != null
                     ? '단식 종료 시간은\n${_getEndTime()}입니다'
                     : '단식 종료 시간을 계산하려면 모든 값을 입력하세요',
                 textAlign: TextAlign.center,
@@ -54,13 +52,23 @@ class _FastingPlanScreenState extends State<FastingPlanScreen> {
             Center(
               child: ElevatedButton(
                 onPressed: () {
-                  if (_selectedDate != null && _startTime != null && _fastingDuration != null) {
+                  if (_startTime != null && _fastingDuration != null) {
+                    DateTime now = DateTime.now();
+                    DateTime selectedStartDateTime = DateTime(
+                      now.year,
+                      now.month,
+                      now.day,
+                      _startTime!.hour,
+                      _startTime!.minute,
+                      now.second,
+                      now.millisecond,
+                      now.microsecond,
+                    );
                     Navigator.push(
                       context,
                       MaterialPageRoute(
                         builder: (context) => FastingTimerScreen(
-                          startDate: _selectedDate!,
-                          startTime: _startTime!,
+                          startDateTime: selectedStartDateTime,
                           fastingDuration: _fastingDuration!,
                         ),
                       ),
@@ -77,7 +85,8 @@ class _FastingPlanScreenState extends State<FastingPlanScreen> {
                   shape: RoundedRectangleBorder(
                     borderRadius: BorderRadius.circular(33),
                   ),
-                  padding: const EdgeInsets.symmetric(horizontal: 40, vertical: 14),
+                  padding:
+                      const EdgeInsets.symmetric(horizontal: 40, vertical: 14),
                 ),
                 child: Text(
                   '단식 시작',
@@ -102,25 +111,6 @@ class _FastingPlanScreenState extends State<FastingPlanScreen> {
     );
   }
 
-  Widget _buildDateField(String label, DateTime? selectedDate) {
-    return GestureDetector(
-      onTap: () async {
-        DateTime? pickedDate = await showDatePicker(
-          context: context,
-          initialDate: DateTime.now(),
-          firstDate: DateTime(2000),
-          lastDate: DateTime(2100),
-        );
-        if (pickedDate != null) {
-          setState(() {
-            _selectedDate = pickedDate;
-          });
-        }
-      },
-      child: _buildTextField(label, selectedDate != null ? '${selectedDate.year}-${selectedDate.month}-${selectedDate.day}' : '날짜를 선택하세요'),
-    );
-  }
-
   Widget _buildTimeField(String label, TimeOfDay? selectedTime) {
     return GestureDetector(
       onTap: () async {
@@ -134,7 +124,11 @@ class _FastingPlanScreenState extends State<FastingPlanScreen> {
           });
         }
       },
-      child: _buildTextField(label, selectedTime != null ? '${selectedTime.format(context)}' : '시간을 선택하세요'),
+      child: _buildTextField(
+          label,
+          selectedTime != null
+              ? '${selectedTime.format(context)}'
+              : '시간을 선택하세요'),
     );
   }
 
@@ -143,7 +137,11 @@ class _FastingPlanScreenState extends State<FastingPlanScreen> {
       onTap: () {
         _showDurationPicker();
       },
-      child: _buildTextField(label, duration != null ? '${duration.inHours}시간 ${duration.inMinutes % 60}분' : '유지 시간을 선택하세요'),
+      child: _buildTextField(
+          label,
+          duration != null
+              ? '${duration.inHours}시간 ${duration.inMinutes % 60}분'
+              : '유지 시간을 선택하세요'),
     );
   }
 
@@ -164,16 +162,23 @@ class _FastingPlanScreenState extends State<FastingPlanScreen> {
   }
 
   String _getEndTime() {
-    if (_selectedDate == null || _startTime == null || _fastingDuration == null) return '';
+    if (_startTime == null || _fastingDuration == null) return '';
+    DateTime now = DateTime.now();
     DateTime startDateTime = DateTime(
-      _selectedDate!.year,
-      _selectedDate!.month,
-      _selectedDate!.day,
+      now.year,
+      now.month,
+      now.day,
       _startTime!.hour,
       _startTime!.minute,
+      now.second,
+      now.millisecond,
+      now.microsecond,
     );
     DateTime endDateTime = startDateTime.add(_fastingDuration!);
-    return '${endDateTime.month}월 ${endDateTime.day}일 ${endDateTime.hour > 12 ? '오후' : '오전'} ${endDateTime.hour % 12}:${endDateTime.minute}';
+    String period = endDateTime.hour >= 12 ? '오후' : '오전';
+    int hour = endDateTime.hour % 12 == 0 ? 12 : endDateTime.hour % 12;
+    String minute = endDateTime.minute.toString().padLeft(2, '0');
+    return '${endDateTime.month}월 ${endDateTime.day}일 $period $hour:$minute';
   }
 
   void _showDurationPicker() {
@@ -226,7 +231,8 @@ class _FastingPlanScreenState extends State<FastingPlanScreen> {
                   ElevatedButton(
                     onPressed: () {
                       setState(() {
-                        _fastingDuration = Duration(hours: hours, minutes: minutes);
+                        _fastingDuration =
+                            Duration(hours: hours, minutes: minutes);
                       });
                       Navigator.pop(context);
                     },
@@ -242,12 +248,12 @@ class _FastingPlanScreenState extends State<FastingPlanScreen> {
   }
 }
 
-// Simple NumberPicker implementation (or use a package)
+// NumberPicker 위젯
 class NumberPicker extends StatelessWidget {
   final int initialValue;
   final int minValue;
   final int maxValue;
-  final Function(int) onChanged;
+  final ValueChanged<int> onChanged;
 
   NumberPicker({
     required this.initialValue,
@@ -262,13 +268,15 @@ class NumberPicker extends StatelessWidget {
       value: initialValue,
       items: List.generate(maxValue - minValue + 1, (index) {
         int value = minValue + index;
-        return DropdownMenuItem(
+        return DropdownMenuItem<int>(
           value: value,
           child: Text(value.toString()),
         );
       }),
       onChanged: (value) {
-        if (value != null) onChanged(value);
+        if (value != null) {
+          onChanged(value);
+        }
       },
     );
   }
