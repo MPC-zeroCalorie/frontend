@@ -7,9 +7,9 @@ class WeeklyFastingPlanScreen extends StatefulWidget {
 }
 
 class _WeeklyFastingPlanScreenState extends State<WeeklyFastingPlanScreen> {
-  TextEditingController _repeatDayController = TextEditingController();
-  TextEditingController _startTimeController = TextEditingController();
-  TextEditingController _fastingDurationController = TextEditingController();
+  DateTime? _repeatDay;
+  TimeOfDay? _startTime;
+  Duration? _fastingDuration;
 
   @override
   Widget build(BuildContext context) {
@@ -35,48 +35,20 @@ class _WeeklyFastingPlanScreenState extends State<WeeklyFastingPlanScreen> {
               style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
             ),
             SizedBox(height: 24),
-            TextField(
-              controller: _repeatDayController,
-              decoration: InputDecoration(
-                hintText: '반복 요일',
-                filled: true,
-                fillColor: Colors.grey[300],
-                border: OutlineInputBorder(
-                  borderRadius: BorderRadius.circular(15),
-                  borderSide: BorderSide.none,
-                ),
-              ),
-            ),
+            _buildDateField('반복 요일', _repeatDay),
             SizedBox(height: 16),
-            TextField(
-              controller: _startTimeController,
-              decoration: InputDecoration(
-                hintText: '시작 시간',
-                filled: true,
-                fillColor: Colors.grey[300],
-                border: OutlineInputBorder(
-                  borderRadius: BorderRadius.circular(15),
-                  borderSide: BorderSide.none,
-                ),
-              ),
-            ),
+            _buildTimeField('시작 시간', _startTime),
             SizedBox(height: 16),
-            TextField(
-              controller: _fastingDurationController,
-              decoration: InputDecoration(
-                hintText: '단식 유지 시간',
-                filled: true,
-                fillColor: Colors.grey[300],
-                border: OutlineInputBorder(
-                  borderRadius: BorderRadius.circular(15),
-                  borderSide: BorderSide.none,
-                ),
-              ),
-            ),
+            _buildDurationField('단식 유지 시간', _fastingDuration),
             SizedBox(height: 24),
-            Text(
-              '매주 m요일마다 yy시 mm분에 단식이 시작됩니다.',
-              style: TextStyle(fontSize: 14, color: Colors.black),
+            Center(
+              child: Text(
+                _repeatDay != null && _startTime != null && _fastingDuration != null
+                    ? '매주 ${_getDayOfWeek(_repeatDay!.weekday)}요일마다 ${_startTime!.format(context)}에 시작하여 ${_fastingDuration!.inHours}시간 ${_fastingDuration!.inMinutes % 60}분 동안 단식합니다.'
+                    : '반복 요일, 시작 시간 및 단식 유지 시간을 선택하세요.',
+                textAlign: TextAlign.center,
+                style: TextStyle(fontSize: 14, color: Colors.black),
+              ),
             ),
             Spacer(),
             Center(
@@ -111,6 +83,178 @@ class _WeeklyFastingPlanScreenState extends State<WeeklyFastingPlanScreen> {
           BottomNavigationBarItem(icon: Icon(Icons.timer), label: 'timer'),
         ],
       ),
+    );
+  }
+
+  Widget _buildDateField(String label, DateTime? selectedDate) {
+    return GestureDetector(
+      onTap: () async {
+        DateTime? pickedDate = await showDatePicker(
+          context: context,
+          initialDate: DateTime.now(),
+          firstDate: DateTime(2000),
+          lastDate: DateTime(2100),
+        );
+        if (pickedDate != null) {
+          setState(() {
+            _repeatDay = pickedDate;
+          });
+        }
+      },
+      child: _buildTextField(
+        label,
+        selectedDate != null ? '${_getDayOfWeek(selectedDate.weekday)}요일' : '요일을 선택하세요',
+      ),
+    );
+  }
+
+  Widget _buildTimeField(String label, TimeOfDay? selectedTime) {
+    return GestureDetector(
+      onTap: () async {
+        TimeOfDay? pickedTime = await showTimePicker(
+          context: context,
+          initialTime: TimeOfDay.now(),
+        );
+        if (pickedTime != null) {
+          setState(() {
+            _startTime = pickedTime;
+          });
+        }
+      },
+      child: _buildTextField(
+        label,
+        selectedTime != null ? selectedTime.format(context) : '시간을 선택하세요',
+      ),
+    );
+  }
+
+  Widget _buildDurationField(String label, Duration? duration) {
+    return GestureDetector(
+      onTap: () {
+        _showDurationPicker();
+      },
+      child: _buildTextField(
+        label,
+        duration != null ? '${duration.inHours}시간 ${duration.inMinutes % 60}분' : '유지 시간을 선택하세요',
+      ),
+    );
+  }
+
+  Widget _buildTextField(String label, String text) {
+    return Container(
+      width: double.infinity,
+      padding: EdgeInsets.symmetric(vertical: 16),
+      decoration: BoxDecoration(
+        color: Colors.grey[300],
+        borderRadius: BorderRadius.circular(15),
+      ),
+      child: Text(
+        text,
+        style: TextStyle(fontSize: 16, color: Colors.black54),
+        textAlign: TextAlign.center,
+      ),
+    );
+  }
+
+  String _getDayOfWeek(int weekday) {
+    const days = ['월', '화', '수', '목', '금', '토', '일'];
+    return days[weekday - 1];
+  }
+
+  void _showDurationPicker() {
+    int hours = _fastingDuration?.inHours ?? 0;
+    int minutes = _fastingDuration?.inMinutes.remainder(60) ?? 0;
+    showModalBottomSheet(
+      context: context,
+      builder: (context) {
+        return StatefulBuilder(
+          builder: (BuildContext context, StateSetter setModalState) {
+            return Container(
+              height: 250,
+              padding: const EdgeInsets.all(16.0),
+              child: Column(
+                children: [
+                  Text(
+                    '단식 유지 시간 선택',
+                    style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+                  ),
+                  SizedBox(height: 16),
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      NumberPicker(
+                        initialValue: hours,
+                        minValue: 0,
+                        maxValue: 23,
+                        onChanged: (value) {
+                          setModalState(() {
+                            hours = value;
+                          });
+                        },
+                      ),
+                      Text('시간'),
+                      SizedBox(width: 16),
+                      NumberPicker(
+                        initialValue: minutes,
+                        minValue: 0,
+                        maxValue: 59,
+                        onChanged: (value) {
+                          setModalState(() {
+                            minutes = value;
+                          });
+                        },
+                      ),
+                      Text('분'),
+                    ],
+                  ),
+                  SizedBox(height: 16),
+                  ElevatedButton(
+                    onPressed: () {
+                      setState(() {
+                        _fastingDuration = Duration(hours: hours, minutes: minutes);
+                      });
+                      Navigator.pop(context);
+                    },
+                    child: Text('확인'),
+                  ),
+                ],
+              ),
+            );
+          },
+        );
+      },
+    );
+  }
+}
+
+// Simple NumberPicker widget (or use a package like `numberpicker`)
+class NumberPicker extends StatelessWidget {
+  final int initialValue;
+  final int minValue;
+  final int maxValue;
+  final Function(int) onChanged;
+
+  NumberPicker({
+    required this.initialValue,
+    required this.minValue,
+    required this.maxValue,
+    required this.onChanged,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return DropdownButton<int>(
+      value: initialValue,
+      items: List.generate(maxValue - minValue + 1, (index) {
+        int value = minValue + index;
+        return DropdownMenuItem(
+          value: value,
+          child: Text(value.toString()),
+        );
+      }),
+      onChanged: (value) {
+        if (value != null) onChanged(value);
+      },
     );
   }
 }

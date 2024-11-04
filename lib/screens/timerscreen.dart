@@ -1,6 +1,8 @@
-// TimerScreen.dart
 import 'package:flutter/material.dart';
+import 'package:mpczerocalorie/screens/home.dart';
 import 'TimerTypeSelectionScreen.dart'; // TimerTypeSelectionScreen 파일을 import
+import 'home.dart'; // Replace with the actual import path for HomeScreen
+import 'CameraScreen.dart'; // Replace with the actual import path for CameraScreen
 
 class TimerScreen extends StatefulWidget {
   @override
@@ -73,8 +75,18 @@ class _TimerScreenState extends State<TimerScreen> {
       bottomNavigationBar: BottomNavigationBar(
         currentIndex: 2,
         onTap: (index) {
-          if (index != 2) {
-            Navigator.pop(context, index);
+          if (index == 0) {
+            // Navigate to HomeScreen
+            Navigator.pushReplacement(
+              context,
+              MaterialPageRoute(builder: (context) => HomePage()),
+            );
+          } else if (index == 1) {
+            // Navigate to CameraScreen
+            Navigator.pushReplacement(
+              context,
+              MaterialPageRoute(builder: (context) => CameraScreen()),
+            );
           }
         },
         selectedItemColor: const Color(0xff6d7ccf),

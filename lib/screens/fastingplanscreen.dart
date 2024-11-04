@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'fastingtimerscreen.dart';
 
 class FastingPlanScreen extends StatefulWidget {
   @override
@@ -53,7 +54,23 @@ class _FastingPlanScreenState extends State<FastingPlanScreen> {
             Center(
               child: ElevatedButton(
                 onPressed: () {
-                  // 단식 시작 기능 구현
+                  if (_selectedDate != null && _startTime != null && _fastingDuration != null) {
+                    Navigator.push(
+                      context,
+                      MaterialPageRoute(
+                        builder: (context) => FastingTimerScreen(
+                          startDate: _selectedDate!,
+                          startTime: _startTime!,
+                          fastingDuration: _fastingDuration!,
+                        ),
+                      ),
+                    );
+                  } else {
+                    // 유효성 검사를 통해 사용자가 모든 정보를 입력했는지 확인
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      SnackBar(content: Text('모든 정보를 입력하세요')),
+                    );
+                  }
                 },
                 style: ElevatedButton.styleFrom(
                   backgroundColor: const Color(0xff6d7ccf),
