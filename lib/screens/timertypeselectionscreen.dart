@@ -1,4 +1,3 @@
-// TimerTypeSelectionScreen.dart
 import 'package:flutter/material.dart';
 import 'fastingplanscreen.dart'; // Import FastingPlanScreen for one-time plan
 import 'weeklyfastingplanscreen.dart'; // Import WeeklyFastingPlanScreen for weekly plan
@@ -15,6 +14,7 @@ class _TimerTypeSelectionScreenState extends State<TimerTypeSelectionScreen> {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
+        title: Text('타이머 유형 선택', style: TextStyle(color: Colors.black)),
         backgroundColor: Colors.white,
         elevation: 0,
         leading: IconButton(
@@ -30,10 +30,8 @@ class _TimerTypeSelectionScreenState extends State<TimerTypeSelectionScreen> {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Text(
-              '타이머 유형을 선택해 주세요',
-              style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
-            ),
+            Text('타이머 유형을 선택해 주세요',
+                style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
             SizedBox(height: 24),
             GestureDetector(
               onTap: () {
@@ -45,7 +43,8 @@ class _TimerTypeSelectionScreenState extends State<TimerTypeSelectionScreen> {
                 width: double.infinity,
                 padding: EdgeInsets.symmetric(vertical: 16),
                 decoration: BoxDecoration(
-                  color: _isOneTimeSelected ? const Color(0xff6d7ccf) : Colors.grey[300],
+                  color:
+                      _isOneTimeSelected ? const Color(0xff6d7ccf) : Colors.grey[300],
                   borderRadius: BorderRadius.circular(15),
                 ),
                 child: Row(
@@ -78,7 +77,9 @@ class _TimerTypeSelectionScreenState extends State<TimerTypeSelectionScreen> {
                 width: double.infinity,
                 padding: EdgeInsets.symmetric(vertical: 16),
                 decoration: BoxDecoration(
-                  color: !_isOneTimeSelected ? const Color(0xff6d7ccf) : Colors.grey[300],
+                  color: !_isOneTimeSelected
+                      ? const Color(0xff6d7ccf)
+                      : Colors.grey[300],
                   borderRadius: BorderRadius.circular(15),
                 ),
                 child: Row(
@@ -114,7 +115,8 @@ class _TimerTypeSelectionScreenState extends State<TimerTypeSelectionScreen> {
                     // Navigate to the WeeklyFastingPlanScreen if weekly plan is selected
                     Navigator.push(
                       context,
-                      MaterialPageRoute(builder: (context) => WeeklyFastingPlanScreen()),
+                      MaterialPageRoute(
+                          builder: (context) => WeeklyFastingPlanScreen()),
                     );
                   }
                 },

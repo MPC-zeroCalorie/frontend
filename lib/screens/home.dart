@@ -2,6 +2,8 @@ import 'package:flutter/material.dart';
 import 'package:table_calendar/table_calendar.dart';
 import 'camerascreen.dart'; // CameraScreen 파일을 import
 import 'timerscreen.dart';
+import 'fasting_timer_service.dart';
+import 'fastingtimerscreen.dart';
 
 class HomePage extends StatefulWidget {
   HomePage({super.key});
@@ -15,11 +17,18 @@ class _HomePageState extends State<HomePage> {
   DateTime? _selectedDay;
   CalendarFormat _calendarFormat = CalendarFormat.week;
   int _selectedIndex = 0; // BottomNavigationBar의 선택된 인덱스
-
+  late FastingTimerService _fastingTimerService;
   // 저속 노화 평균 점수와 총 칼로리 섭취량 변수
   double _antiAgingScore = 0.6; // 초기값: 0.6 (60%) // 추후에 총점수 받아 변경
   int _calorieValue = 2200; // 초기 칼로리 값, 추후에 칼로리 값을 정보로 받아 변경
   int _maxCalorieValue = 2500; // 최대 칼로리 값
+
+  @override
+    void initState() {
+      super.initState();
+      _fastingTimerService = FastingTimerService();
+    }
+
 
 void _onItemTapped(int index) async {
   if (index == 1) {
@@ -189,6 +198,40 @@ void _onItemTapped(int index) async {
                 ],
               ),
             ),
+            if (_fastingTimerService.isTimerRunning)
+              Padding(
+                padding: const EdgeInsets.all(16.0),
+                child: Column(
+                  children: [
+                    Text('단식이 진행 중입니다!'),
+                    SizedBox(height: 8),
+                    ElevatedButton(
+                      onPressed: () {
+                        Navigator.push(
+                          context,
+                          MaterialPageRoute(
+                            builder: (context) => FastingTimerScreen(
+                              startDateTime: _fastingTimerService.startDateTime!,
+                              fastingDuration: _fastingTimerService.fastingDuration!,
+                            ),
+                          ),
+                        );
+                      },
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: const Color(0xff6d7ccf),
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(33),
+                        ),
+                        padding: const EdgeInsets.symmetric(horizontal: 40, vertical: 14),
+                      ),
+                      child: Text(
+                        '타이머 보기',
+                        style: TextStyle(color: Colors.white, fontSize: 16),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
           ],
         ),
       ),
