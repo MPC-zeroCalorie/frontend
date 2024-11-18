@@ -4,6 +4,7 @@ import 'camerascreen.dart'; // CameraScreen 파일을 import
 import 'timerscreen.dart';
 import 'fasting_timer_service.dart';
 import 'fastingtimerscreen.dart';
+import 'notificationsettingsscreen.dart';
 
 class HomePage extends StatefulWidget {
   HomePage({super.key});
@@ -97,7 +98,17 @@ void _onItemTapped(int index) async {
                             ),
                             Row(
                               children: [
-                                Icon(Icons.notifications, color: Colors.white),
+                                InkWell(
+                                  onTap: () {
+                                    Navigator.push(
+                                      context,
+                                      MaterialPageRoute(
+                                        builder: (context) => NotificationSettingsScreen(),
+                                      ),
+                                    );
+                                  },
+                                  child: Icon(Icons.notifications, color: Colors.white),
+                                ),
                                 SizedBox(width: 20),
                                 Icon(Icons.menu, color: Colors.white),
                               ],

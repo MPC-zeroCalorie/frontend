@@ -3,6 +3,7 @@
 import 'package:flutter/material.dart';
 import 'package:percent_indicator/percent_indicator.dart';
 import 'dart:async';
+import 'package:flutter_local_notifications/flutter_local_notifications.dart';
 import 'home.dart';
 import 'camerascreen.dart';
 import 'timerscreen.dart';
@@ -27,9 +28,23 @@ class _FastingTimerScreenState extends State<FastingTimerScreen> {
   Duration _remainingDuration = Duration.zero;
   bool _isTimerRunning = true;
 
+  late FlutterLocalNotificationsPlugin flutterLocalNotificationsPlugin;
+
   @override
   void initState() {
     super.initState();
+
+    flutterLocalNotificationsPlugin = FlutterLocalNotificationsPlugin();
+    const AndroidInitializationSettings initializationSettingsAndroid =
+        AndroidInitializationSettings('@mipmap/ic_launcher');
+    const InitializationSettings initializationSettings =
+        InitializationSettings(android: initializationSettingsAndroid);
+    flutterLocalNotificationsPlugin.initialize(
+      initializationSettings,
+      onDidReceiveNotificationResponse: (NotificationResponse response) {
+        // 알림 클릭 시 동작 (필요한 경우 정의 가능)
+      },
+    );
     _fastingTimerService = FastingTimerService();
 
     if (!_fastingTimerService.isTimerRunning) {
@@ -46,6 +61,11 @@ class _FastingTimerScreenState extends State<FastingTimerScreen> {
         _remainingDuration = duration;
         if (_remainingDuration == Duration.zero) {
           _isTimerRunning = false;
+          
+          _showNotification(
+            '단식 종료',
+            '단식이 종료되었습니다!',
+          );
         }
       });
     });
@@ -57,15 +77,28 @@ class _FastingTimerScreenState extends State<FastingTimerScreen> {
     super.dispose();
   }
 
-  String _formatDuration(Duration duration) {
-    String twoDigits(int n) => n.toString().padLeft(2, '0');
-    String hours = twoDigits(duration.inHours);
-    String minutes = twoDigits(duration.inMinutes.remainder(60));
-    String seconds = twoDigits(duration.inSeconds.remainder(60));
-    return "$hours:$minutes:$seconds";
+  Future<void> _showNotification(String title, String body) async {
+    const AndroidNotificationDetails androidPlatformChannelSpecifics =
+        AndroidNotificationDetails(
+      'fasting_timer_channel', // 채널 ID
+      'Fasting Timer', // 채널 이름
+      channelDescription: 'Fasting timer notifications', // 채널 설명
+      importance: Importance.high,
+      priority: Priority.high,
+    );
+
+    const NotificationDetails platformChannelSpecifics =
+        NotificationDetails(android: androidPlatformChannelSpecifics);
+
+    await flutterLocalNotificationsPlugin.show(
+      0, // 알림 ID
+      title, // 알림 제목
+      body, // 알림 내용
+      platformChannelSpecifics,
+    );
   }
 
-  void _showEndFastingConfirmation() {
+    void _showEndFastingConfirmation() {
     showDialog(
       context: context,
       builder: (BuildContext context) {
@@ -101,6 +134,18 @@ class _FastingTimerScreenState extends State<FastingTimerScreen> {
       _isTimerRunning = false;
       _remainingDuration = Duration.zero;
     });
+    _showNotification(
+      '단식 종료',
+      '단식이 종료되었습니다!',
+    );
+  }
+
+  String _formatDuration(Duration duration) {
+    String twoDigits(int n) => n.toString().padLeft(2, '0');
+    String hours = twoDigits(duration.inHours);
+    String minutes = twoDigits(duration.inMinutes.remainder(60));
+    String seconds = twoDigits(duration.inSeconds.remainder(60));
+    return "$hours:$minutes:$seconds";
   }
 
   String _getFormattedStartAndEndTime() {

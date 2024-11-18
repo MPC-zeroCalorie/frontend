@@ -10,9 +10,9 @@ import 'screens/fastingtimerscreen.dart';
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
   await checkAndNavigateToFastingTimer();
-
   runApp(MyApp());
 }
+
 Future<void> checkAndNavigateToFastingTimer() async {
   SharedPreferences prefs = await SharedPreferences.getInstance();
   int? fastingWeekday = prefs.getInt('fastingWeekday');
