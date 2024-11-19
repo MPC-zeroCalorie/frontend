@@ -2,9 +2,6 @@ import 'package:flutter/material.dart';
 import 'package:table_calendar/table_calendar.dart';
 import 'camerascreen.dart'; // CameraScreen 파일을 import
 import 'timerscreen.dart';
-import 'fasting_timer_service.dart';
-import 'fastingtimerscreen.dart';
-import 'notificationsettingsscreen.dart';
 
 class HomePage extends StatefulWidget {
   HomePage({super.key});
@@ -18,51 +15,42 @@ class _HomePageState extends State<HomePage> {
   DateTime? _selectedDay;
   CalendarFormat _calendarFormat = CalendarFormat.week;
   int _selectedIndex = 0; // BottomNavigationBar의 선택된 인덱스
-  late FastingTimerService _fastingTimerService;
-  // 저속 노화 평균 점수와 총 칼로리 섭취량 변수
-  double _antiAgingScore = 0.6; // 초기값: 0.6 (60%) // 추후에 총점수 받아 변경
-  int _calorieValue = 2200; // 초기 칼로리 값, 추후에 칼로리 값을 정보로 받아 변경
-  int _maxCalorieValue = 2500; // 최대 칼로리 값
 
-  @override
-    void initState() {
-      super.initState();
-      _fastingTimerService = FastingTimerService();
+  double _antiAgingScore = 0.6;
+  int _calorieValue = 2200;
+  int _maxCalorieValue = 2500;
+
+  void _onItemTapped(int index) async {
+    String mealType = '';
+
+    if (index == 1) {
+      mealType = '아침';
+    } else if (index == 2) {
+      mealType = '점심';
+    } else if (index == 3) {
+      mealType = '저녁';
     }
 
+    if (mealType.isNotEmpty) {
+      final result = await Navigator.push(
+        context,
+        MaterialPageRoute(
+          builder: (context) => CameraScreen(mealType: mealType), // mealType 전달
+        ),
+      );
 
-void _onItemTapped(int index) async {
-  if (index == 1) {
-    // Navigate to CameraScreen
-    final result = await Navigator.push(
-      context,
-      MaterialPageRoute(builder: (context) => CameraScreen()),
-    );
-
-    if (result != null) {
+      // result 처리 (필요에 따라 수정)
+      if (result != null) {
+        setState(() {
+          _selectedIndex = result;
+        });
+      }
+    } else {
       setState(() {
-        _selectedIndex = result;
+        _selectedIndex = index;
       });
     }
-  } else if (index == 2) {
-    // Navigate to TimerScreen
-    final result = await Navigator.push(
-      context,
-      MaterialPageRoute(builder: (context) => TimerScreen()),
-    );
-
-    if (result != null) {
-      setState(() {
-        _selectedIndex = result;
-      });
-    }
-  } else {
-    setState(() {
-      _selectedIndex = index;
-    });
   }
-}
-
 
 
   @override
@@ -72,14 +60,12 @@ void _onItemTapped(int index) async {
       body: SingleChildScrollView(
         child: Column(
           children: [
-            // Top section with purple background and calendar
             Stack(
               clipBehavior: Clip.none,
               children: [
-                // 배경을 캘린더 색상으로 설정
                 Container(
                   width: double.infinity,
-                  color: const Color(0xff6d7ccf), // 캘린더 색상
+                  color: const Color(0xff6d7ccf),
                   padding: const EdgeInsets.only(top: 40.0, bottom: 20.0),
                   child: Column(
                     children: [
@@ -98,17 +84,7 @@ void _onItemTapped(int index) async {
                             ),
                             Row(
                               children: [
-                                InkWell(
-                                  onTap: () {
-                                    Navigator.push(
-                                      context,
-                                      MaterialPageRoute(
-                                        builder: (context) => NotificationSettingsScreen(),
-                                      ),
-                                    );
-                                  },
-                                  child: Icon(Icons.notifications, color: Colors.white),
-                                ),
+                                Icon(Icons.notifications, color: Colors.white),
                                 SizedBox(width: 20),
                                 Icon(Icons.menu, color: Colors.white),
                               ],
@@ -116,25 +92,23 @@ void _onItemTapped(int index) async {
                           ],
                         ),
                       ),
-                      SizedBox(height: 10), // 캘린더 위쪽 여백
+                      SizedBox(height: 10),
                       _buildCalendar(),
-                      SizedBox(height: 10), // 캘린더와 대시보드 사이의 추가 여백
+                      SizedBox(height: 10),
                     ],
                   ),
                 ),
-                // 대시보드 배경 처리
                 Positioned(
-                  bottom: -20, // 캘린더 아래로 배치
+                  bottom: -20,
                   left: 0,
                   right: 0,
                   child: Container(
                     height: 40,
-                    color: const Color(0xff6d7ccf), // 캘린더와 동일한 색상
+                    color: const Color(0xff6d7ccf),
                   ),
                 ),
-                // 대시보드의 둥근 모서리를 처리
                 Positioned(
-                  bottom: -20, // 둥근 모서리를 캘린더 아래로 배치
+                  bottom: -20,
                   left: 0,
                   right: 0,
                   child: Container(
@@ -150,8 +124,6 @@ void _onItemTapped(int index) async {
                 ),
               ],
             ),
-
-            // Dashboard section
             Padding(
               padding: const EdgeInsets.all(16.0),
               child: Column(
@@ -180,17 +152,16 @@ void _onItemTapped(int index) async {
                   SizedBox(height: 10),
                   _buildProgressBar(
                     '총 칼로리 섭취량',
-                    _calorieValue / _maxCalorieValue, // 현재 칼로리 값과 최대 칼로리 값의 비율
+                    _calorieValue / _maxCalorieValue,
                     trailingText: '${_calorieValue}kcal',
                   ),
                   SizedBox(height: 20),
                   Center(
                     child: ElevatedButton(
                       onPressed: () {
-                        // 점수와 칼로리를 업데이트하는 예제
                         setState(() {
-                          _antiAgingScore = (_antiAgingScore + 0.1) % 1.0; // 예시: 0.1씩 증가
-                          _calorieValue = (_calorieValue + 100) % (_maxCalorieValue + 1); // 예시: 100씩 증가, 최대 칼로리를 넘지 않도록
+                          _antiAgingScore = (_antiAgingScore + 0.1) % 1.0;
+                          _calorieValue = (_calorieValue + 100) % (_maxCalorieValue + 1);
                         });
                       },
                       style: ElevatedButton.styleFrom(
@@ -209,48 +180,14 @@ void _onItemTapped(int index) async {
                 ],
               ),
             ),
-            if (_fastingTimerService.isTimerRunning)
-              Padding(
-                padding: const EdgeInsets.all(16.0),
-                child: Column(
-                  children: [
-                    Text('단식이 진행 중입니다!'),
-                    SizedBox(height: 8),
-                    ElevatedButton(
-                      onPressed: () {
-                        Navigator.push(
-                          context,
-                          MaterialPageRoute(
-                            builder: (context) => FastingTimerScreen(
-                              startDateTime: _fastingTimerService.startDateTime!,
-                              fastingDuration: _fastingTimerService.fastingDuration!,
-                            ),
-                          ),
-                        );
-                      },
-                      style: ElevatedButton.styleFrom(
-                        backgroundColor: const Color(0xff6d7ccf),
-                        shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(33),
-                        ),
-                        padding: const EdgeInsets.symmetric(horizontal: 40, vertical: 14),
-                      ),
-                      child: Text(
-                        '타이머 보기',
-                        style: TextStyle(color: Colors.white, fontSize: 16),
-                      ),
-                    ),
-                  ],
-                ),
-              ),
           ],
         ),
       ),
       bottomNavigationBar: BottomNavigationBar(
         currentIndex: _selectedIndex,
         onTap: _onItemTapped,
-        selectedItemColor: const Color(0xff6d7ccf), // 선택된 아이템 색상
-        unselectedItemColor: Colors.grey, // 선택되지 않은 아이템 색상
+        selectedItemColor: const Color(0xff6d7ccf),
+        unselectedItemColor: Colors.grey,
         items: [
           BottomNavigationBarItem(icon: Icon(Icons.home), label: 'home'),
           BottomNavigationBarItem(icon: Icon(Icons.camera_alt), label: 'camera'),
@@ -259,6 +196,7 @@ void _onItemTapped(int index) async {
       ),
     );
   }
+
 
   Widget _buildCalendar() {
     return TableCalendar(
@@ -309,35 +247,36 @@ void _onItemTapped(int index) async {
     );
   }
 
-  Widget _buildMealCard(String meal, [String? subtitle, IconData? icon]) {
-    return Container(
-      padding: EdgeInsets.all(16.0),
-      decoration: BoxDecoration(
-        color: const Color(0xffbdd6f2),
-        borderRadius: BorderRadius.circular(15),
-      ),
-      child: Row(
-        mainAxisAlignment: MainAxisAlignment.spaceBetween,
-        children: [
-          Text(
-            meal,
-            style: TextStyle(fontSize: 16, color: Colors.black),
+
+  Widget _buildMealCard(String meal) {
+    return GestureDetector(
+      onTap: () async {
+        final result = await Navigator.push(
+          context,
+          MaterialPageRoute(
+            builder: (context) => CameraScreen(mealType: meal),  // meal 값 전달
           ),
-          if (subtitle != null)
-            Row(
-              children: [
-                Text(
-                  subtitle,
-                  style: TextStyle(fontSize: 12, color: Colors.black.withOpacity(0.6)),
-                ),
-                if (icon != null) SizedBox(width: 10),
-                if (icon != null) Icon(icon, color: Colors.black),
-              ],
+        );
+      },
+      child: Container(
+        padding: EdgeInsets.all(16.0),
+        decoration: BoxDecoration(
+          color: const Color(0xffbdd6f2),
+          borderRadius: BorderRadius.circular(15),
+        ),
+        child: Row(
+          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+          children: [
+            Text(
+              meal,
+              style: TextStyle(fontSize: 16, color: Colors.black),
             ),
-        ],
+          ],
+        ),
       ),
     );
   }
+
 
   Widget _buildProgressBar(String label, double progress, {String? trailingText}) {
     return Column(

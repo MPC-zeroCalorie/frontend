@@ -1,0 +1,5 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="app_name">FoodLensTestApp</string>
+    <string name="foodlens_access_token">2f29a40f7c7441ccadcc1c98774afbdb</string>
+</resources>
