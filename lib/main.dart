@@ -52,7 +52,7 @@ class _MyAppState extends State<MyApp> {
         // CameraScreen으로 갈 때 'mealType'을 인자로 전달하도록 수정
         '/cameraScreen': (context) {
           final Map<String, String> arguments = ModalRoute.of(context)?.settings.arguments as Map<String, String> ?? {};
-          return CameraScreen(mealType: arguments['mealType'] ?? 'Unknown');
+          return CameraScreen();
         },
         '/timerScreen': (context) => TimerScreen(),
       },

@@ -3,9 +3,7 @@ import 'dart:io'; // 이미지 파일을 사용하기 위해 추가
 import '../platform_channel.dart'; // 네이티브 기능 호출을 위한 platform_channel
 
 class CameraScreen extends StatefulWidget {
-  final String mealType; // 아침, 점심, 저녁을 받기 위한 변수
-
-  CameraScreen({Key? key, required this.mealType}) : super(key: key);
+  CameraScreen({Key? key}) : super(key: key);
 
   @override
   _CameraScreenState createState() => _CameraScreenState();
@@ -14,6 +12,7 @@ class CameraScreen extends StatefulWidget {
 class _CameraScreenState extends State<CameraScreen> {
   bool _isEditing = false; // 텍스트 편집 모드 여부
   bool _isExpanded = false; // 바텀 시트 확장 상태
+  String _selectedMeal = '아침'; // 선택한 식사 유형
   TextEditingController _foodController = TextEditingController(
     text: '돈까스, 쌀밥, 양배추샐러드, 간장, 와사비, 피클, 된장국', // 초기 음식 텍스트 설정
   );
@@ -23,14 +22,14 @@ class _CameraScreenState extends State<CameraScreen> {
 
   // 최대 영양소 값을 설정하여 비율 계산에 사용
   Map<String, double> _maxNutritionValues = {
-    "칼슘": 1000.0,      // 하루 권장 섭취량 (mg)
-    "단백질": 50.0,      // 하루 권장 섭취량 (g)
-    "식이섬유": 25.0,     // 하루 권장 섭취량 (g)
-    "탄수화물": 300.0,    // 하루 권장 섭취량 (g)
-    "비타민C": 90.0,     // 하루 권장 섭취량 (mg)
-    "지방": 70.0,       // 하루 권장 섭취량 (g)
-    "비타민D": 20.0,     // 하루 권장 섭취량 (µg)
-    "당": 50.0,         // 하루 권장 섭취량 (g)
+    "칼슘": 1000.0, // 하루 권장 섭취량 (mg)
+    "단백질": 50.0, // 하루 권장 섭취량 (g)
+    "식이섬유": 25.0, // 하루 권장 섭취량 (g)
+    "탄수화물": 300.0, // 하루 권장 섭취량 (g)
+    "비타민C": 90.0, // 하루 권장 섭취량 (mg)
+    "지방": 70.0, // 하루 권장 섭취량 (g)
+    "비타민D": 20.0, // 하루 권장 섭취량 (µg)
+    "당": 50.0, // 하루 권장 섭취량 (g)
   };
 
   void _toggleEditMode() {
@@ -83,32 +82,43 @@ class _CameraScreenState extends State<CameraScreen> {
     String today = DateTime.now().toIso8601String().split('T')[0].replaceAll('-', '.'); //현재날짜
     String timeNow = DateTime.now().toLocal().toString().split(' ')[1].substring(0, 5); //현재시간
 
-
     return Scaffold(
-      resizeToAvoidBottomInset: false, // 키보드가 올라와도 바텀 시트가 같이 올라가지 않도록 설정
+      resizeToAvoidBottomInset: false,
       appBar: AppBar(
         leading: IconButton(
           icon: Icon(Icons.arrow_back, color: Colors.black),
           onPressed: () {
-            Navigator.pop(context, 0); // 0을 전달하여 홈 화면 인덱스로 설정
+            Navigator.pop(context); // 홈 화면으로 돌아가기
           },
         ),
         backgroundColor: Colors.white,
         elevation: 0,
+        title: DropdownButton<String>(
+          value: _selectedMeal,
+          items: ['아침', '점심', '저녁']
+              .map((meal) => DropdownMenuItem<String>(
+                    value: meal,
+                    child: Text(meal),
+                  ))
+              .toList(),
+          onChanged: (value) {
+            setState(() {
+              _selectedMeal = value!;
+            });
+          },
+        ),
       ),
-
       body: Stack(
         children: [
-          // 메인 컨텐츠 스크롤 가능하도록
           SingleChildScrollView(
-            padding: const EdgeInsets.only(bottom: 160), // 바텀 시트를 위한 여백
+            padding: const EdgeInsets.only(bottom: 160),
             child: Padding(
               padding: const EdgeInsets.all(16.0),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   Text(
-                    '$today / ${widget.mealType}', // 동적으로 날짜와 mealType 출력
+                    '$today / $_selectedMeal', // 선택한 식사 유형 출력
                     style: TextStyle(fontSize: 16),
                   ),
                   SizedBox(height: 8),
@@ -130,11 +140,11 @@ class _CameraScreenState extends State<CameraScreen> {
                       child: _image == null
                           ? Center(child: Text("이미지를 등록해주세요"))
                           : Image.file(
-                        _image!, // 네이티브 카메라에서 찍은 이미지를 표시
-                        fit: BoxFit.contain,
-                        width: double.infinity,
-                        height: 250,
-                      ),
+                              _image!,
+                              fit: BoxFit.contain,
+                              width: double.infinity,
+                              height: 250,
+                            ),
                     ),
                   ),
                   SizedBox(height: 16),
@@ -147,52 +157,50 @@ class _CameraScreenState extends State<CameraScreen> {
                       ),
                       SizedBox(width: 8),
                       ElevatedButton(
-                        onPressed: _toggleEditMode, // 편집 모드 토글
+                        onPressed: _toggleEditMode,
                         style: ElevatedButton.styleFrom(
                           backgroundColor: Colors.white,
                           foregroundColor: Colors.black,
-                          minimumSize: Size(80, 30), // 크기 조정
+                          minimumSize: Size(80, 30),
                           padding: EdgeInsets.symmetric(horizontal: 12),
                         ),
                         child: Text(
                           '+ 음식 추가하기',
-                          style: TextStyle(fontSize: 12), // 폰트 크기 조정
+                          style: TextStyle(fontSize: 12),
                         ),
                       ),
                     ],
                   ),
                   SizedBox(height: 8),
-                  // 텍스트 편집 모드 여부에 따라 Text 또는 TextField 표시
                   _isEditing
                       ? TextField(
-                    controller: _foodController,
-                    maxLines: null, // 여러 줄 입력 가능
-                    textInputAction: TextInputAction.done, // "확인" 버튼 표시
-                    decoration: InputDecoration(
-                      border: OutlineInputBorder(),
-                      contentPadding: EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-                    ),
-                    style: TextStyle(fontSize: 12),
-                    onEditingComplete: () {
-                      _toggleEditMode(); // 입력 완료 시 편집 모드 종료
-                    },
-                  )
+                          controller: _foodController,
+                          maxLines: null,
+                          textInputAction: TextInputAction.done,
+                          decoration: InputDecoration(
+                            border: OutlineInputBorder(),
+                            contentPadding: EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                          ),
+                          style: TextStyle(fontSize: 12),
+                          onEditingComplete: () {
+                            _toggleEditMode();
+                          },
+                        )
                       : Text(
-                    _foodController.text,
-                    style: TextStyle(fontSize: 12),
-                  ),
+                          _foodController.text,
+                          style: TextStyle(fontSize: 12),
+                        ),
                   SizedBox(height: 16),
                   Text(
                     '영양소 분석: ',
                     style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
                   ),
                   SizedBox(height: 8),
-                  _buildNutrientAnalysis(), // 영양소 분석을 원형 차트로 표시
+                  _buildNutrientAnalysis(),
                 ],
               ),
             ),
           ),
-          // 제스처로 조작 가능한 바텀 시트
           _buildGestureControlledBottomSheet(40, 120),
         ],
       ),
@@ -249,7 +257,7 @@ class _CameraScreenState extends State<CameraScreen> {
       left: 0,
       right: 0,
       child: GestureDetector(
-        onTap: _toggleBottomSheet, // 제스처를 통해 바텀 시트 토글
+        onTap: _toggleBottomSheet,
         child: AnimatedContainer(
           duration: Duration(milliseconds: 300),
           height: _isExpanded ? maxHeight : minHeight,
@@ -274,8 +282,6 @@ class _CameraScreenState extends State<CameraScreen> {
                     children: [
                       ListTile(
                         title: Center(child: Text('사진 촬영')),
-
-                        // 네이티브 카메라 호출
                         onTap: _invokeCameraSDK,
                       ),
                       Divider(height: 1),

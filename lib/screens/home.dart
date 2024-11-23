@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:table_calendar/table_calendar.dart';
-import 'camerascreen.dart'; // CameraScreen 파일을 import
-import 'timerscreen.dart';
+import 'camerascreen.dart'; // CameraScreen 파일 import
+import 'timerscreen.dart'; // TimerScreen 파일 import
 
 class HomePage extends StatefulWidget {
   HomePage({super.key});
@@ -14,44 +14,58 @@ class _HomePageState extends State<HomePage> {
   DateTime _focusedDay = DateTime.now();
   DateTime? _selectedDay;
   CalendarFormat _calendarFormat = CalendarFormat.week;
-  int _selectedIndex = 0; // BottomNavigationBar의 선택된 인덱스
+  int _selectedIndex = 0;
 
   double _antiAgingScore = 0.6;
   int _calorieValue = 2200;
   int _maxCalorieValue = 2500;
 
+  // 각 식사별 데이터를 저장할 변수
+  Map<String, Map<String, dynamic>> _mealData = {
+    '아침': {'image': null, 'food': '등록된 음식 없음'},
+    '점심': {'image': null, 'food': '등록된 음식 없음'},
+    '저녁': {'image': null, 'food': '등록된 음식 없음'},
+  };
+
   void _onItemTapped(int index) async {
-    String mealType = '';
-
     if (index == 1) {
-      mealType = '아침';
-    } else if (index == 2) {
-      mealType = '점심';
-    } else if (index == 3) {
-      mealType = '저녁';
-    }
-
-    if (mealType.isNotEmpty) {
-      final result = await Navigator.push(
+      // CameraScreen으로 이동
+      await Navigator.push(
         context,
         MaterialPageRoute(
-          builder: (context) => CameraScreen(mealType: mealType), // mealType 전달
+          builder: (context) => CameraScreen(),
         ),
       );
+    } else if (index == 2) {
+      // TimerScreen으로 이동
+      await Navigator.push(
+        context,
+        MaterialPageRoute(
+          builder: (context) => TimerScreen(),
+        ),
+      );
+    }
 
-      // result 처리 (필요에 따라 수정)
-      if (result != null) {
-        setState(() {
-          _selectedIndex = result;
-        });
-      }
-    } else {
+    setState(() {
+      _selectedIndex = index;
+    });
+  }
+
+  // CameraScreen으로 이동하여 데이터를 받아오는 함수
+  Future<void> _navigateToCamera(String mealType) async {
+    final result = await Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (context) => CameraScreen(),
+      ),
+    );
+
+    if (result != null && result is Map<String, dynamic>) {
       setState(() {
-        _selectedIndex = index;
+        _mealData[mealType] = result; // 해당 식사 유형의 데이터를 업데이트
       });
     }
   }
-
 
   @override
   Widget build(BuildContext context) {
@@ -197,7 +211,6 @@ class _HomePageState extends State<HomePage> {
     );
   }
 
-
   Widget _buildCalendar() {
     return TableCalendar(
       firstDay: DateTime.utc(2020, 1, 1),
@@ -247,17 +260,11 @@ class _HomePageState extends State<HomePage> {
     );
   }
 
-
   Widget _buildMealCard(String meal) {
+    final mealData = _mealData[meal];
+
     return GestureDetector(
-      onTap: () async {
-        final result = await Navigator.push(
-          context,
-          MaterialPageRoute(
-            builder: (context) => CameraScreen(mealType: meal),  // meal 값 전달
-          ),
-        );
-      },
+      onTap: () => _navigateToCamera(meal), // CameraScreen으로 이동
       child: Container(
         padding: EdgeInsets.all(16.0),
         decoration: BoxDecoration(
@@ -267,16 +274,32 @@ class _HomePageState extends State<HomePage> {
         child: Row(
           mainAxisAlignment: MainAxisAlignment.spaceBetween,
           children: [
-            Text(
-              meal,
-              style: TextStyle(fontSize: 16, color: Colors.black),
+            Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  meal,
+                  style: TextStyle(fontSize: 16, color: Colors.black),
+                ),
+                SizedBox(height: 8),
+                Text(
+                  mealData?['food'] ?? '등록된 음식 없음',
+                  style: TextStyle(fontSize: 14, color: Colors.grey),
+                ),
+              ],
             ),
+            if (mealData?['image'] != null)
+              Image.file(
+                mealData!['image'], // 등록된 이미지 표시
+                width: 60,
+                height: 60,
+                fit: BoxFit.cover,
+              ),
           ],
         ),
       ),
     );
   }
-
 
   Widget _buildProgressBar(String label, double progress, {String? trailingText}) {
     return Column(
