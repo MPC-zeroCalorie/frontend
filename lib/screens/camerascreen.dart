@@ -3,6 +3,7 @@ import 'dart:io'; // 이미지 파일을 사용하기 위해 추가
 import 'dart:convert'; // JSON 변환을 위해 추가
 import 'package:http/http.dart' as http; // HTTP 요청을 위해 추가
 import '../platform_channel.dart'; // 네이티브 기능 호출을 위한 platform_channel
+import 'package:shared_preferences/shared_preferences.dart'; // SharedPreferences import 추가
 
 class CameraScreen extends StatefulWidget {
   CameraScreen({Key? key}) : super(key: key);
@@ -21,7 +22,7 @@ class _CameraScreenState extends State<CameraScreen> {
 
   File? _image; // 찍은 이미지를 저장할 변수
   Map<String, double> _nutritionInfo = {}; // 음식 영양 정보를 저장할 변수
-
+  String? _userToken;
   double _antiAgingScore = 0.0; // 저속노화점수 초기값
 
   // 최대 영양소 값을 설정하여 비율 계산에 사용
@@ -35,10 +36,20 @@ class _CameraScreenState extends State<CameraScreen> {
     "비타민D": 20.0, // 하루 권장 섭취량 (µg)
     "당": 50.0, // 하루 권장 섭취량 (g)
   };
+  @override
+  void initState() {
+    super.initState();
+    _loadUserToken();
+  }
+  Future<void> _loadUserToken() async {
+    SharedPreferences prefs = await SharedPreferences.getInstance();
+    setState(() {
+      _userToken = prefs.getString('token');
+    });
+  }
 
   final String _saveMealUrl =
       'https://savemealandcalculatescore-4zs2rshoda-uc.a.run.app'; // API URL
-  String _userToken = '로그인 시 발급된 JWT 토큰'; // 실제 로그인 시 발급된 토큰으로 교체해야 합니다.
 
   void _toggleEditMode() {
     setState(() {

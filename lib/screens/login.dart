@@ -1,5 +1,6 @@
 import 'dart:convert'; // JSON 변환을 위해 추가
 import 'package:flutter/material.dart';
+import 'package:shared_preferences/shared_preferences.dart'; // SharedPreferences import 추가
 import 'package:mpczerocalorie/screens/signup.dart';
 import 'package:mpczerocalorie/screens/home.dart'; // HomePage import 추가
 import 'package:http/http.dart' as http; // HTTP 요청을 위해 추가
@@ -57,8 +58,12 @@ class _LoginScreenState extends State<LoginScreen> {
         final responseBody = jsonDecode(response.body);
         print('로그인 성공: ${responseBody['token']}');
 
+        // SharedPreferences를 사용하여 토큰 저장
+        SharedPreferences prefs = await SharedPreferences.getInstance();
+        await prefs.setString('token', responseBody['token']);
+
         // 로그인 성공 후 HomePage로 이동
-        Navigator.push(
+        Navigator.pushReplacement(
           context,
           MaterialPageRoute(builder: (context) => HomePage()),
         );
