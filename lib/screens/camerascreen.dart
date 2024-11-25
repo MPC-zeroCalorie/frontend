@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 import 'dart:io'; // 이미지 파일을 사용하기 위해 추가
+import 'dart:convert'; // JSON 변환을 위해 추가
+import 'package:http/http.dart' as http; // HTTP 요청을 위해 추가
 import '../platform_channel.dart'; // 네이티브 기능 호출을 위한 platform_channel
 
 class CameraScreen extends StatefulWidget {
@@ -20,6 +22,8 @@ class _CameraScreenState extends State<CameraScreen> {
   File? _image; // 찍은 이미지를 저장할 변수
   Map<String, double> _nutritionInfo = {}; // 음식 영양 정보를 저장할 변수
 
+  double _antiAgingScore = 0.0; // 저속노화점수 초기값
+
   // 최대 영양소 값을 설정하여 비율 계산에 사용
   Map<String, double> _maxNutritionValues = {
     "칼슘": 1000.0, // 하루 권장 섭취량 (mg)
@@ -31,6 +35,10 @@ class _CameraScreenState extends State<CameraScreen> {
     "비타민D": 20.0, // 하루 권장 섭취량 (µg)
     "당": 50.0, // 하루 권장 섭취량 (g)
   };
+
+  final String _saveMealUrl =
+      'https://savemealandcalculatescore-4zs2rshoda-uc.a.run.app'; // API URL
+  String _userToken = '로그인 시 발급된 JWT 토큰'; // 실제 로그인 시 발급된 토큰으로 교체해야 합니다.
 
   void _toggleEditMode() {
     setState(() {
@@ -46,41 +54,134 @@ class _CameraScreenState extends State<CameraScreen> {
 
   // 네이티브 메서드를 호출하여 카메라 실행
   Future<void> _invokeCameraSDK() async {
-    var result = await MyPlatformChannel.invokeNativeMethod("myNativeMethod");
+    var result =
+        await MyPlatformChannel.invokeNativeMethod("myNativeMethod");
 
     // 네이티브에서 받은 결과에 따라 이미지와 음식 정보를 업데이트
     setState(() {
-      _foodController.text = result["foodName"] ?? "음식 이름을 인식하지 못했습니다.";
+      _foodController.text =
+          result["foodName"] ?? "음식 이름을 인식하지 못했습니다.";
       _nutritionInfo = {
         "칼슘": (result["nutritionInfo"]["칼슘"] as num?)?.toDouble() ?? 0.0,
-        "단백질": (result["nutritionInfo"]["단백질"] as num?)?.toDouble() ?? 0.0,
-        "식이섬유": (result["nutritionInfo"]["식이섬유"] as num?)?.toDouble() ?? 0.0,
-        "탄수화물": (result["nutritionInfo"]["탄수화물"] as num?)?.toDouble() ?? 0.0,
-        "비타민C": (result["nutritionInfo"]["비타민C"] as num?)?.toDouble() ?? 0.0,
+        "단백질":
+            (result["nutritionInfo"]["단백질"] as num?)?.toDouble() ?? 0.0,
+        "식이섬유":
+            (result["nutritionInfo"]["식이섬유"] as num?)?.toDouble() ?? 0.0,
+        "탄수화물":
+            (result["nutritionInfo"]["탄수화물"] as num?)?.toDouble() ?? 0.0,
+        "비타민C":
+            (result["nutritionInfo"]["비타민C"] as num?)?.toDouble() ?? 0.0,
         "지방": (result["nutritionInfo"]["지방"] as num?)?.toDouble() ?? 0.0,
-        "비타민D": (result["nutritionInfo"]["비타민D"] as num?)?.toDouble() ?? 0.0,
+        "비타민D":
+            (result["nutritionInfo"]["비타민D"] as num?)?.toDouble() ?? 0.0,
         "당": (result["nutritionInfo"]["당"] as num?)?.toDouble() ?? 0.0,
       };
 
       print("Received nutrition info: $_nutritionInfo"); // << 추가된 로그
       _image = File(result["imagePath"]); // 실제 경로로 이미지 업데이트
+
+      // 저속노화 점수를 업데이트하는 로직 추가
+      _updateAntiAgingScore();
+    });
+  }
+
+  // 저속노화점수 계산 (영양소 정보로 점수 계산)
+  void _updateAntiAgingScore() {
+    double score = 0.0;
+    double totalWeight = _maxNutritionValues.length.toDouble();
+
+    _maxNutritionValues.forEach((key, maxValue) {
+      double nutrientValue = _nutritionInfo[key] ?? 0.0;
+      score += (nutrientValue / maxValue).clamp(0.0, 1.0); // 비율 계산 및 제한
+    });
+
+    setState(() {
+      _antiAgingScore =
+          (score / totalWeight).clamp(0.0, 1.0); // 평균값으로 저속노화점수 계산
     });
   }
 
   // 비율 계산 함수
   double calculatePercentage(String nutrient) {
-    if (_nutritionInfo.containsKey(nutrient) && _maxNutritionValues.containsKey(nutrient)) {
-      return (_nutritionInfo[nutrient]! / _maxNutritionValues[nutrient]!).clamp(0.0, 1.0);
+    if (_nutritionInfo.containsKey(nutrient) &&
+        _maxNutritionValues.containsKey(nutrient)) {
+      return (_nutritionInfo[nutrient]! / _maxNutritionValues[nutrient]!)
+          .clamp(0.0, 1.0);
     }
     return 0.0;
+  }
+
+  // 저속 노화 점수 저장 및 계산 API 호출
+  Future<void> _saveMeal() async {
+    // 현재 날짜 및 식사 데이터 준비
+    String date = DateTime.now().toIso8601String().split('T')[0];
+    String mealType = _selectedMeal;
+
+    // 에너지(칼로리) 계산
+    double energy = ((_nutritionInfo["탄수화물"] ?? 0.0) * 4) +
+        ((_nutritionInfo["단백질"] ?? 0.0) * 4) +
+        ((_nutritionInfo["지방"] ?? 0.0) * 9);
+
+    // 음식 데이터 생성 (여기서는 전체 식사를 하나의 아이템으로 처리)
+    Map<String, dynamic> food = {
+      "name": _foodController.text,
+      "vitaminC": _nutritionInfo["비타민C"] ?? 0.0,
+      "protein": _nutritionInfo["단백질"] ?? 0.0,
+      "totalDietaryFiber": _nutritionInfo["식이섬유"] ?? 0.0,
+      "energy": energy,
+    };
+
+    // 요청 Body 생성
+    Map<String, dynamic> body = {
+      "token": _userToken,
+      "date": date,
+      "mealType": mealType,
+      "foods": [food],
+    };
+
+    try {
+      final response = await http.post(
+        Uri.parse(_saveMealUrl),
+        headers: {'Content-Type': 'application/json'},
+        body: jsonEncode(body),
+      );
+
+      if (response.statusCode == 200) {
+        // 성공 처리
+        final responseBody = jsonDecode(response.body);
+        setState(() {
+          _antiAgingScore =
+              (responseBody['slowAgingScore'] as num).toDouble() / 100.0;
+        });
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(
+                '저속 노화 점수 저장 완료: ${responseBody['slowAgingScore']}점'),
+          ),
+        );
+      } else {
+        // 오류 처리
+        final responseBody = jsonDecode(response.body);
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('오류 발생: ${responseBody['message']}')),
+        );
+      }
+    } catch (e) {
+      // 예외 처리
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('네트워크 오류 발생: $e')),
+      );
+    }
   }
 
   @override
   Widget build(BuildContext context) {
     final double maxHeight = 120; // 바텀 시트 최대 높이
     final double minHeight = 40; // 바텀 시트 최소 높이
-    String today = DateTime.now().toIso8601String().split('T')[0].replaceAll('-', '.'); //현재날짜
-    String timeNow = DateTime.now().toLocal().toString().split(' ')[1].substring(0, 5); //현재시간
+    String today =
+        DateTime.now().toIso8601String().split('T')[0].replaceAll('-', '.'); // 현재 날짜
+    String timeNow =
+        DateTime.now().toLocal().toString().split(' ')[1].substring(0, 5); // 현재 시간
 
     return Scaffold(
       resizeToAvoidBottomInset: false,
@@ -107,6 +208,12 @@ class _CameraScreenState extends State<CameraScreen> {
             });
           },
         ),
+        actions: [
+          IconButton(
+            icon: Icon(Icons.check, color: Colors.black),
+            onPressed: _saveMeal, // 등록 버튼 클릭 시 _saveMeal 호출
+          ),
+        ],
       ),
       body: Stack(
         children: [
@@ -153,7 +260,8 @@ class _CameraScreenState extends State<CameraScreen> {
                     children: [
                       Text(
                         '내가 먹은 음식',
-                        style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+                        style:
+                            TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
                       ),
                       SizedBox(width: 8),
                       ElevatedButton(
@@ -179,7 +287,8 @@ class _CameraScreenState extends State<CameraScreen> {
                           textInputAction: TextInputAction.done,
                           decoration: InputDecoration(
                             border: OutlineInputBorder(),
-                            contentPadding: EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                            contentPadding: EdgeInsets.symmetric(
+                                horizontal: 12, vertical: 8),
                           ),
                           style: TextStyle(fontSize: 12),
                           onEditingComplete: () {
@@ -191,9 +300,13 @@ class _CameraScreenState extends State<CameraScreen> {
                           style: TextStyle(fontSize: 12),
                         ),
                   SizedBox(height: 16),
+                  // 저속노화점수 Progress Bar
+                  _buildAntiAgingBar(),
+                  SizedBox(height: 16),
                   Text(
                     '영양소 분석: ',
-                    style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+                    style:
+                        TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
                   ),
                   SizedBox(height: 8),
                   _buildNutrientAnalysis(),
@@ -201,9 +314,29 @@ class _CameraScreenState extends State<CameraScreen> {
               ),
             ),
           ),
-          _buildGestureControlledBottomSheet(40, 120),
+          _buildGestureControlledBottomSheet(minHeight, maxHeight),
         ],
       ),
+    );
+  }
+
+  // 저속노화점수 Progress Bar 위젯
+  Widget _buildAntiAgingBar() {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(
+          '저속 노화 점수: ${(_antiAgingScore * 100).toStringAsFixed(1)}점',
+          style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
+        ),
+        SizedBox(height: 8),
+        LinearProgressIndicator(
+          value: _antiAgingScore,
+          backgroundColor: Colors.grey[300],
+          color: Colors.blueAccent,
+          minHeight: 10,
+        ),
+      ],
     );
   }
 
@@ -212,19 +345,28 @@ class _CameraScreenState extends State<CameraScreen> {
       spacing: 16.0,
       runSpacing: 16.0,
       children: [
-        _buildNutrientCircle('${_nutritionInfo["칼슘"] ?? 0.0} mg', calculatePercentage("칼슘"), '칼슘'),
-        _buildNutrientCircle('${_nutritionInfo["단백질"] ?? 0.0} g', calculatePercentage("단백질"), '단백질'),
-        _buildNutrientCircle('${_nutritionInfo["식이섬유"] ?? 0.0} g', calculatePercentage("식이섬유"), '식이섬유'),
-        _buildNutrientCircle('${_nutritionInfo["탄수화물"] ?? 0.0} g', calculatePercentage("탄수화물"), '탄수화물'),
-        _buildNutrientCircle('${_nutritionInfo["비타민C"] ?? 0.0} mg', calculatePercentage("비타민C"), '비타민C'),
-        _buildNutrientCircle('${_nutritionInfo["지방"] ?? 0.0} g', calculatePercentage("지방"), '지방'),
-        _buildNutrientCircle('${_nutritionInfo["비타민D"] ?? 0.0} µg', calculatePercentage("비타민D"), '비타민D'),
-        _buildNutrientCircle('${_nutritionInfo["당"] ?? 0.0} g', calculatePercentage("당"), '당'),
+        _buildNutrientCircle(
+            '${_nutritionInfo["칼슘"] ?? 0.0} mg', calculatePercentage("칼슘"), '칼슘'),
+        _buildNutrientCircle(
+            '${_nutritionInfo["단백질"] ?? 0.0} g', calculatePercentage("단백질"), '단백질'),
+        _buildNutrientCircle(
+            '${_nutritionInfo["식이섬유"] ?? 0.0} g', calculatePercentage("식이섬유"), '식이섬유'),
+        _buildNutrientCircle('${_nutritionInfo["탄수화물"] ?? 0.0} g',
+            calculatePercentage("탄수화물"), '탄수화물'),
+        _buildNutrientCircle('${_nutritionInfo["비타민C"] ?? 0.0} mg',
+            calculatePercentage("비타민C"), '비타민C'),
+        _buildNutrientCircle(
+            '${_nutritionInfo["지방"] ?? 0.0} g', calculatePercentage("지방"), '지방'),
+        _buildNutrientCircle('${_nutritionInfo["비타민D"] ?? 0.0} µg',
+            calculatePercentage("비타민D"), '비타민D'),
+        _buildNutrientCircle(
+            '${_nutritionInfo["당"] ?? 0.0} g', calculatePercentage("당"), '당'),
       ],
     );
   }
 
-  Widget _buildNutrientCircle(String valueText, double value, String nutrient) {
+  Widget _buildNutrientCircle(
+      String valueText, double value, String nutrient) {
     return SizedBox(
       width: MediaQuery.of(context).size.width / 4 - 24,
       child: Column(
@@ -236,11 +378,13 @@ class _CameraScreenState extends State<CameraScreen> {
                 value: value,
                 strokeWidth: 6.0,
                 backgroundColor: const Color(0xffbdd6f2),
-                valueColor: AlwaysStoppedAnimation<Color>(const Color(0xff6d7ccf)),
+                valueColor:
+                    AlwaysStoppedAnimation<Color>(const Color(0xff6d7ccf)),
               ),
               Text(
                 valueText,
-                style: TextStyle(color: Colors.black, fontWeight: FontWeight.bold),
+                style:
+                    TextStyle(color: Colors.black, fontWeight: FontWeight.bold),
               ),
             ],
           ),
@@ -251,7 +395,8 @@ class _CameraScreenState extends State<CameraScreen> {
     );
   }
 
-  Widget _buildGestureControlledBottomSheet(double minHeight, double maxHeight) {
+  Widget _buildGestureControlledBottomSheet(
+      double minHeight, double maxHeight) {
     return Positioned(
       bottom: 0,
       left: 0,
