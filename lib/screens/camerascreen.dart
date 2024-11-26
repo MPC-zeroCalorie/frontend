@@ -65,35 +65,29 @@ class _CameraScreenState extends State<CameraScreen> {
 
   // 네이티브 메서드를 호출하여 카메라 실행
   Future<void> _invokeCameraSDK() async {
-    var result =
-        await MyPlatformChannel.invokeNativeMethod("myNativeMethod");
+    try {
+      var result = await MyPlatformChannel.invokeNativeMethod("myNativeMethod");
 
-    // 네이티브에서 받은 결과에 따라 이미지와 음식 정보를 업데이트
-    setState(() {
-      _foodController.text =
-          result["foodName"] ?? "음식 이름을 인식하지 못했습니다.";
-      _nutritionInfo = {
-        "칼슘": (result["nutritionInfo"]["칼슘"] as num?)?.toDouble() ?? 0.0,
-        "단백질":
-            (result["nutritionInfo"]["단백질"] as num?)?.toDouble() ?? 0.0,
-        "식이섬유":
-            (result["nutritionInfo"]["식이섬유"] as num?)?.toDouble() ?? 0.0,
-        "탄수화물":
-            (result["nutritionInfo"]["탄수화물"] as num?)?.toDouble() ?? 0.0,
-        "비타민C":
-            (result["nutritionInfo"]["비타민C"] as num?)?.toDouble() ?? 0.0,
-        "지방": (result["nutritionInfo"]["지방"] as num?)?.toDouble() ?? 0.0,
-        "비타민D":
-            (result["nutritionInfo"]["비타민D"] as num?)?.toDouble() ?? 0.0,
-        "당": (result["nutritionInfo"]["당"] as num?)?.toDouble() ?? 0.0,
-      };
+      if (result.containsKey("Error")) {
+        throw Exception(result["Error"]);
+      }
 
-      print("Received nutrition info: $_nutritionInfo"); // << 추가된 로그
-      _image = File(result["imagePath"]); // 실제 경로로 이미지 업데이트
+      // 네이티브에서 받은 결과 처리
+      setState(() {
+        _foodController.text =
+            result["foodName"] ?? "음식 이름을 인식하지 못했습니다.";
+        _nutritionInfo = Map<String, double>.from(result["nutritionInfo"] ?? {});
+        _image = File(result["imagePath"]); // 이미지 경로 설정
 
-      // 저속노화 점수를 업데이트하는 로직 추가
-      _updateAntiAgingScore();
-    });
+        // 저속노화 점수 업데이트
+        _updateAntiAgingScore();
+      });
+    } catch (e) {
+      print("Error: $e");
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('네이티브 호출 실패: $e')),
+      );
+    }
   }
 
   // 저속노화점수 계산 (영양소 정보로 점수 계산)

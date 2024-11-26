@@ -1,3 +1,4 @@
+import 'dart:io';
 import 'package:flutter/material.dart';
 import 'platform_channel.dart';
 import 'package:flutter/services.dart';
@@ -24,19 +25,43 @@ class _MyAppState extends State<MyApp> {
     // 네이티브에서 결과를 받기 위한 MethodChannel 설정
     const MethodChannel('my_sdk_channel').setMethodCallHandler((call) async {
       if (call.method == "onFoodRecognized") {
-        final foodInfo = call.arguments as String;
+        // 네이티브에서 전달된 데이터 파싱
+        final Map<String, dynamic> foodInfo = Map<String, dynamic>.from(call.arguments);
+
+        // UI 업데이트
         _showFoodInfo(foodInfo);
       }
     });
   }
 
-  // 여러 음식 정보를 다루도록 _showFoodInfo 함수 수정
-  void _showFoodInfo(String foodInfo) {
+  // UI에 데이터를 표시하는 함수
+  void _showFoodInfo(Map<String, dynamic> foodInfo) {
     showDialog(
       context: context,
-      builder: (context) => AlertDialog(
-        content: Text('인식된 음식 및 영양 정보:\n$foodInfo'),
-      ),
+      builder: (context) {
+        final nutritionInfo = foodInfo['nutritionInfo'] as Map<String, dynamic>;
+        final foodName = foodInfo['foodName'];
+        final imagePath = foodInfo['imagePath'];
+
+        return AlertDialog(
+          title: Text('인식 결과'),
+          content: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text('음식 이름: $foodName'),
+              Text('영양 정보:'),
+              ...nutritionInfo.entries.map((entry) {
+                return Text('${entry.key}: ${entry.value}');
+              }),
+              SizedBox(height: 16),
+              imagePath != null && imagePath.isNotEmpty
+                  ? Image.file(File(imagePath)) // 네이티브에서 전달받은 이미지 표시
+                  : Text('이미지가 없습니다.'),
+            ],
+          ),
+        );
+      },
     );
   }
 
@@ -44,14 +69,13 @@ class _MyAppState extends State<MyApp> {
   Widget build(BuildContext context) {
     return MaterialApp(
       title: 'App',
-      initialRoute: '/',  // 초기 라우트 설정
+      initialRoute: '/', // 초기 라우트 설정
       routes: {
-        '/': (context) => LoginScreen(),  // 로그인 화면을 첫 번째 화면으로 설정
+        '/': (context) => LoginScreen(), // 로그인 화면을 첫 번째 화면으로 설정
         '/signup': (context) => SignUpPage(),
         '/home': (context) => HomePage(),
-        // CameraScreen으로 갈 때 'mealType'을 인자로 전달하도록 수정
         '/cameraScreen': (context) {
-          final Map<String, String> arguments = ModalRoute.of(context)?.settings.arguments as Map<String, String> ?? {};
+          final Map<String, String> arguments = ModalRoute.of(context)?.settings.arguments as Map<String, String>? ?? {};
           return CameraScreen();
         },
         '/timerScreen': (context) => TimerScreen(),
