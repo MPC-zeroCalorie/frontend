@@ -45,6 +45,7 @@ class _CameraScreenState extends State<CameraScreen> {
     SharedPreferences prefs = await SharedPreferences.getInstance();
     setState(() {
       _userToken = prefs.getString('token');
+      print("Loaded user token: $_userToken");
     });
   }
 
@@ -67,7 +68,8 @@ class _CameraScreenState extends State<CameraScreen> {
   Future<void> _invokeCameraSDK() async {
     try {
       var result = await MyPlatformChannel.invokeNativeMethod("myNativeMethod");
-
+      
+      print("Received result from native: $result"); // 결과 출력
       if (result.containsKey("Error")) {
         throw Exception(result["Error"]);
       }
@@ -76,7 +78,7 @@ class _CameraScreenState extends State<CameraScreen> {
       setState(() {
         _foodController.text =
             result["foodName"] ?? "음식 이름을 인식하지 못했습니다.";
-        _nutritionInfo = Map<String, double>.from(result["nutritionInfo"] ?? {});
+        _nutritionInfo = Map<String, double>.from(Map<String, dynamic>.from(result["nutritionInfo"] ?? {}));
         _image = File(result["imagePath"]); // 이미지 경로 설정
 
         // 저속노화 점수 업데이트
@@ -115,55 +117,96 @@ class _CameraScreenState extends State<CameraScreen> {
     }
     return 0.0;
   }
+  String getMealTypeEnglish(String koreanMealType) {
+    switch (koreanMealType) {
+      case '아침':
+        return 'breakfast';
+      case '점심':
+        return 'lunch';
+      case '저녁':
+        return 'dinner';
+      default:
+        return 'unknown';
+    }
+  }
 
   // 저속 노화 점수 저장 및 계산 API 호출
   Future<void> _saveMeal() async {
     // 현재 날짜 및 식사 데이터 준비
     String date = DateTime.now().toIso8601String().split('T')[0];
-    String mealType = _selectedMeal;
 
     // 에너지(칼로리) 계산
     double energy = ((_nutritionInfo["탄수화물"] ?? 0.0) * 4) +
         ((_nutritionInfo["단백질"] ?? 0.0) * 4) +
         ((_nutritionInfo["지방"] ?? 0.0) * 9);
 
-    // 음식 데이터 생성 (여기서는 전체 식사를 하나의 아이템으로 처리)
-    Map<String, dynamic> food = {
-      "name": _foodController.text,
+    // 음식 데이터 생성
+    Map<String, dynamic> foodItem = {
+      "name": _foodController.text ?? "",
       "vitaminC": _nutritionInfo["비타민C"] ?? 0.0,
       "protein": _nutritionInfo["단백질"] ?? 0.0,
       "totalDietaryFiber": _nutritionInfo["식이섬유"] ?? 0.0,
       "energy": energy,
     };
 
+    // 선택한 식사 타입을 영어로 변환
+    String mealType = getMealTypeEnglish(_selectedMeal);
+
+    // 식사 데이터 생성
+    Map<String, dynamic> mealData = {
+      "mealType": mealType,
+      "foods": [foodItem],
+    };
+
     // 요청 Body 생성
     Map<String, dynamic> body = {
-      "token": _userToken,
+      "token": _userToken ?? "",
       "date": date,
-      "mealType": mealType,
-      "foods": [food],
+      "foods": [mealData],
     };
+
+    // 토큰이 null이거나 빈 문자열인지 확인
+    if (_userToken == null || _userToken!.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('로그인이 필요합니다.')),
+      );
+      return;
+    }
 
     try {
       final response = await http.post(
         Uri.parse(_saveMealUrl),
-        headers: {'Content-Type': 'application/json'},
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': 'Bearer $_userToken',
+        },
         body: jsonEncode(body),
       );
+
+      print("Request body: ${jsonEncode(body)}");
+      print("Response status: ${response.statusCode}");
+      print("Response body: ${response.body}");
 
       if (response.statusCode == 200) {
         // 성공 처리
         final responseBody = jsonDecode(response.body);
         setState(() {
           _antiAgingScore =
-              (responseBody['slowAgingScore'] as num).toDouble() / 100.0;
+              (responseBody['mealScore'] as num).toDouble() / 100.0;
         });
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: Text(
-                '저속 노화 점수 저장 완료: ${responseBody['slowAgingScore']}점'),
+            content:
+                Text('저속 노화 점수 저장 완료: ${responseBody['mealScore']}점'),
           ),
         );
+        Map<String, dynamic> resultData = {
+          'mealType': _selectedMeal, // CameraScreen에서 선택한 mealType
+          'imagePath': _image?.path,
+          'food': _foodController.text,
+          'energy': energy, // 칼로리 값을 포함
+        };
+        Navigator.pop(context, resultData); // 데이터와 함께 이전 화면으로 이동
       } else {
         // 오류 처리
         final responseBody = jsonDecode(response.body);
@@ -178,6 +221,8 @@ class _CameraScreenState extends State<CameraScreen> {
       );
     }
   }
+
+
 
   @override
   Widget build(BuildContext context) {

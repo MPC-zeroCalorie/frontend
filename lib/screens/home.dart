@@ -1,7 +1,12 @@
+import 'dart:convert';
+
 import 'package:flutter/material.dart';
 import 'package:table_calendar/table_calendar.dart';
 import 'camerascreen.dart'; // CameraScreen 파일 import
 import 'timerscreen.dart'; // TimerScreen 파일 import
+import 'dart:io'; // 이미지 파일을 사용하기 위해 추가
+import 'package:shared_preferences/shared_preferences.dart'; // SharedPreferences import 추가
+import 'package:http/http.dart' as http; // HTTP 요청을 위해 추가
 
 class HomePage extends StatefulWidget {
   HomePage({super.key});
@@ -15,10 +20,11 @@ class _HomePageState extends State<HomePage> {
   DateTime? _selectedDay;
   CalendarFormat _calendarFormat = CalendarFormat.week;
   int _selectedIndex = 0;
-
-  double _antiAgingScore = 0.6;
-  int _calorieValue = 2200;
-  int _maxCalorieValue = 2500;
+  String? _userToken;
+  double _antiAgingScore = 0.0; // 저속 노화 평균 점수 초기값
+  int _calorieValue = 0; // 총 칼로리 섭취량 초기값
+  int _maxCalorieValue = 2500; // 최대 칼로리 섭취량 (변경 없음)
+  final String _calculateDailyScoreUrl = 'https://calculatedailyscore-4zs2rshoda-uc.a.run.app'; // API URL
 
   // 각 식사별 데이터를 저장할 변수
   Map<String, Map<String, dynamic>> _mealData = {
@@ -26,16 +32,82 @@ class _HomePageState extends State<HomePage> {
     '점심': {'image': null, 'food': '등록된 음식 없음'},
     '저녁': {'image': null, 'food': '등록된 음식 없음'},
   };
+  @override
+  void initState() {
+    super.initState();
+    _loadUserToken();
+  }
+  Future<void> _loadUserToken() async {
+    SharedPreferences prefs = await SharedPreferences.getInstance();
+    setState(() {
+      _userToken = prefs.getString('token');
+      print("Loaded user token: $_userToken");
+    });
+  }
+Future<void> _calculateDailySlowAgingScore() async {
+  String date = DateTime.now().toIso8601String().split('T')[0];
+
+  if (_userToken == null || _userToken!.isEmpty) {
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(content: Text('로그인이 필요합니다.')),
+    );
+    return;
+  }
+
+  try {
+    final response = await http.post(
+      Uri.parse(_calculateDailyScoreUrl),
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': 'Bearer $_userToken',
+      },
+      body: jsonEncode({'date': date}),
+    );
+
+    print("Daily score response status: ${response.statusCode}");
+    print("Daily score response body: ${response.body}");
+
+    if (response.statusCode == 200) {
+      final responseBody = jsonDecode(response.body);
+      setState(() {
+        _antiAgingScore = (responseBody['dailySlowAgingScore'] as num).toDouble() / 100.0;
+      });
+    } else {
+      final responseBody = jsonDecode(response.body);
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('일간 점수 계산 오류: ${responseBody['message']}')),
+      );
+    }
+  } catch (e) {
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(content: Text('네트워크 오류 발생: $e')),
+    );
+  }
+}
 
   void _onItemTapped(int index) async {
     if (index == 1) {
       // CameraScreen으로 이동
-      await Navigator.push(
+        final result = await Navigator.push(
         context,
         MaterialPageRoute(
           builder: (context) => CameraScreen(),
         ),
-      );
+    );
+    if (result != null && result is Map<String, dynamic>) {
+      String mealType = result['mealType'] ?? '아침'; // 기본값 설정
+      setState(() {
+        _mealData[mealType] = {
+          'image': result['imagePath'] != null ? File(result['imagePath']) : null,
+          'food': result['food'] ?? '등록된 음식 없음',
+        };
+        // 칼로리 값 누적
+        int energy = (result['energy'] as num?)?.toInt() ?? 0;
+        _calorieValue += energy;
+      });
+      // 일간 저속 노화 점수 계산 API 호출
+      await _calculateDailySlowAgingScore();
+      }
     } else if (index == 2) {
       // TimerScreen으로 이동
       await Navigator.push(
@@ -52,20 +124,30 @@ class _HomePageState extends State<HomePage> {
   }
 
   // CameraScreen으로 이동하여 데이터를 받아오는 함수
-  Future<void> _navigateToCamera(String mealType) async {
-    final result = await Navigator.push(
-      context,
-      MaterialPageRoute(
-        builder: (context) => CameraScreen(),
-      ),
-    );
+Future<void> _navigateToCamera(String mealType) async {
+  final result = await Navigator.push(
+    context,
+    MaterialPageRoute(
+      builder: (context) => CameraScreen(),
+    ),
+  );
 
-    if (result != null && result is Map<String, dynamic>) {
-      setState(() {
-        _mealData[mealType] = result; // 해당 식사 유형의 데이터를 업데이트
-      });
-    }
+  if (result != null && result is Map<String, dynamic>) {
+    String returnedMealType = result['mealType'] ?? mealType; // 반환된 mealType 사용
+    setState(() {
+      _mealData[returnedMealType] = {
+        'image': result['imagePath'] != null ? File(result['imagePath']) : null,
+        'food': result['food'] ?? '등록된 음식 없음',
+      };
+      // 칼로리 값 누적
+      int energy = (result['energy'] as num?)?.toInt() ?? 0;
+      _calorieValue += energy;
+    });
+    // 일간 저속 노화 점수 계산 API 호출
+    await _calculateDailySlowAgingScore();
   }
+}
+
 
   @override
   Widget build(BuildContext context) {
@@ -169,28 +251,6 @@ class _HomePageState extends State<HomePage> {
                     _calorieValue / _maxCalorieValue,
                     trailingText: '${_calorieValue}kcal',
                   ),
-                  SizedBox(height: 20),
-                  Center(
-                    child: ElevatedButton(
-                      onPressed: () {
-                        setState(() {
-                          _antiAgingScore = (_antiAgingScore + 0.1) % 1.0;
-                          _calorieValue = (_calorieValue + 100) % (_maxCalorieValue + 1);
-                        });
-                      },
-                      style: ElevatedButton.styleFrom(
-                        backgroundColor: const Color(0xff6d7ccf),
-                        shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(33),
-                        ),
-                        padding: const EdgeInsets.symmetric(horizontal: 40, vertical: 14),
-                      ),
-                      child: Text(
-                        '영양 상세정보',
-                        style: TextStyle(color: Colors.white, fontSize: 16),
-                      ),
-                    ),
-                  ),
                 ],
               ),
             ),
@@ -261,20 +321,21 @@ class _HomePageState extends State<HomePage> {
   }
 
   Widget _buildMealCard(String meal) {
-    final mealData = _mealData[meal];
+  final mealData = _mealData[meal];
 
-    return GestureDetector(
-      onTap: () => _navigateToCamera(meal), // CameraScreen으로 이동
-      child: Container(
-        padding: EdgeInsets.all(16.0),
-        decoration: BoxDecoration(
-          color: const Color(0xffbdd6f2),
-          borderRadius: BorderRadius.circular(15),
-        ),
-        child: Row(
-          mainAxisAlignment: MainAxisAlignment.spaceBetween,
-          children: [
-            Column(
+  return GestureDetector(
+    onTap: () => _navigateToCamera(meal), // CameraScreen으로 이동
+    child: Container(
+      padding: EdgeInsets.all(16.0),
+      decoration: BoxDecoration(
+        color: const Color(0xffbdd6f2),
+        borderRadius: BorderRadius.circular(15),
+      ),
+      child: Row(
+        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+        children: [
+          Expanded( // 텍스트 오버플로우 방지
+            child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text(
@@ -285,16 +346,18 @@ class _HomePageState extends State<HomePage> {
                 Text(
                   mealData?['food'] ?? '등록된 음식 없음',
                   style: TextStyle(fontSize: 14, color: Colors.grey),
+                  overflow: TextOverflow.ellipsis,
                 ),
               ],
             ),
-            if (mealData?['image'] != null)
-              Image.file(
-                mealData!['image'], // 등록된 이미지 표시
-                width: 60,
-                height: 60,
-                fit: BoxFit.cover,
-              ),
+          ),
+          if (mealData?['image'] != null)
+            Image.file(
+              mealData!['image'],
+              width: 60,
+              height: 60,
+              fit: BoxFit.cover,
+            ),
           ],
         ),
       ),
@@ -340,4 +403,5 @@ class _HomePageState extends State<HomePage> {
       ],
     );
   }
+
 }
