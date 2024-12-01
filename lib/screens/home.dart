@@ -1,5 +1,5 @@
 import 'dart:convert';
-
+import 'mealdetailscreen.dart';
 import 'package:flutter/material.dart';
 import 'package:table_calendar/table_calendar.dart';
 import 'camerascreen.dart'; // CameraScreen 파일 import
@@ -137,6 +137,8 @@ Future<void> _navigateToCamera(String mealType) async {
     setState(() {
       _mealData[returnedMealType] = {
         'image': result['imagePath'] != null ? File(result['imagePath']) : null,
+        'nutritionInfo': result['nutritionInfo'] ?? {},
+        'antiAgingScore': result['antiAgingScore'] ?? 0.0,
         'food': result['food'] ?? '등록된 음식 없음',
       };
       // 칼로리 값 누적
@@ -320,11 +322,25 @@ Future<void> _navigateToCamera(String mealType) async {
     );
   }
 
-  Widget _buildMealCard(String meal) {
-  final mealData = _mealData[meal];
+Widget _buildMealCard(String mealType) {
+  final mealData = _mealData[mealType];
 
   return GestureDetector(
-    onTap: () => _navigateToCamera(meal), // CameraScreen으로 이동
+    onTap: () {
+      if (mealData != null) {
+        Navigator.push(
+          context,
+          MaterialPageRoute(
+            builder: (context) => MealDetailScreen(
+              mealType: mealType,
+              image: mealData['image'],
+              nutritionInfo: mealData['nutritionInfo'],
+              antiAgingScore: mealData['antiAgingScore'],
+            ),
+          ),
+        );
+      }
+    },
     child: Container(
       padding: EdgeInsets.all(16.0),
       decoration: BoxDecoration(
@@ -334,12 +350,12 @@ Future<void> _navigateToCamera(String mealType) async {
       child: Row(
         mainAxisAlignment: MainAxisAlignment.spaceBetween,
         children: [
-          Expanded( // 텍스트 오버플로우 방지
+          Expanded(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text(
-                  meal,
+                  mealType,
                   style: TextStyle(fontSize: 16, color: Colors.black),
                 ),
                 SizedBox(height: 8),
@@ -358,11 +374,12 @@ Future<void> _navigateToCamera(String mealType) async {
               height: 60,
               fit: BoxFit.cover,
             ),
-          ],
-        ),
+        ],
       ),
-    );
-  }
+    ),
+  );
+}
+
 
   Widget _buildProgressBar(String label, double progress, {String? trailingText}) {
     return Column(

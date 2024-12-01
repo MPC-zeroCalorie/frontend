@@ -17,7 +17,7 @@ class _CameraScreenState extends State<CameraScreen> {
   bool _isExpanded = false; // 바텀 시트 확장 상태
   String _selectedMeal = '아침'; // 선택한 식사 유형
   TextEditingController _foodController = TextEditingController(
-    text: '돈까스, 쌀밥, 양배추샐러드, 간장, 와사비, 피클, 된장국', // 초기 음식 텍스트 설정
+    text: '', // 초기 음식 텍스트 설정
   );
 
   File? _image; // 찍은 이미지를 저장할 변수
@@ -112,8 +112,10 @@ class _CameraScreenState extends State<CameraScreen> {
   double calculatePercentage(String nutrient) {
     if (_nutritionInfo.containsKey(nutrient) &&
         _maxNutritionValues.containsKey(nutrient)) {
-      return (_nutritionInfo[nutrient]! / _maxNutritionValues[nutrient]!)
-          .clamp(0.0, 1.0);
+      double percentage =
+        (_nutritionInfo[nutrient]! / _maxNutritionValues[nutrient]!)
+            .clamp(0.0, 1.0);
+      return double.parse(percentage.toStringAsFixed(1)); // 소수점 첫째 자리로 제한
     }
     return 0.0;
   }
@@ -134,6 +136,8 @@ class _CameraScreenState extends State<CameraScreen> {
   Future<void> _saveMeal() async {
     // 현재 날짜 및 식사 데이터 준비
     String date = DateTime.now().toIso8601String().split('T')[0];
+    // 선택한 식사 타입을 영어로 변환
+    String mealType = getMealTypeEnglish(_selectedMeal);
 
     // 에너지(칼로리) 계산
     double energy = ((_nutritionInfo["탄수화물"] ?? 0.0) * 4) +
@@ -143,26 +147,17 @@ class _CameraScreenState extends State<CameraScreen> {
     // 음식 데이터 생성
     Map<String, dynamic> foodItem = {
       "name": _foodController.text ?? "",
-      "vitaminC": _nutritionInfo["비타민C"] ?? 0.0,
-      "protein": _nutritionInfo["단백질"] ?? 0.0,
-      "totalDietaryFiber": _nutritionInfo["식이섬유"] ?? 0.0,
-      "energy": energy,
-    };
-
-    // 선택한 식사 타입을 영어로 변환
-    String mealType = getMealTypeEnglish(_selectedMeal);
-
-    // 식사 데이터 생성
-    Map<String, dynamic> mealData = {
-      "mealType": mealType,
-      "foods": [foodItem],
+      "vitaminC": double.parse((_nutritionInfo["비타민C"] ?? 0.0).toStringAsFixed(1)),
+      "protein": double.parse((_nutritionInfo["단백질"] ?? 0.0).toStringAsFixed(1)),
+      "totalDietaryFiber": double.parse((_nutritionInfo["식이섬유"] ?? 0.0).toStringAsFixed(1)),
+      "energy": double.parse(energy.toStringAsFixed(1)), // 에너지 값도 소수점 제한
     };
 
     // 요청 Body 생성
     Map<String, dynamic> body = {
-      "token": _userToken ?? "",
       "date": date,
-      "foods": [mealData],
+      "mealType": mealType,
+      "foods": [foodItem],
     };
 
     // 토큰이 null이거나 빈 문자열인지 확인
@@ -201,10 +196,12 @@ class _CameraScreenState extends State<CameraScreen> {
           ),
         );
         Map<String, dynamic> resultData = {
-          'mealType': _selectedMeal, // CameraScreen에서 선택한 mealType
-          'imagePath': _image?.path,
-          'food': _foodController.text,
-          'energy': energy, // 칼로리 값을 포함
+            'mealType': _selectedMeal, // 식사 유형
+            'imagePath': _image?.path, // 이미지 파일 경로
+            'nutritionInfo': _nutritionInfo, // 영양소 정보
+            'antiAgingScore': _antiAgingScore, // 저속노화 점수
+            'food': _foodController.text, // 음식 이름
+            'energy': energy, // 칼로리 값을 포함
         };
         Navigator.pop(context, resultData); // 데이터와 함께 이전 화면으로 이동
       } else {
@@ -396,24 +393,49 @@ class _CameraScreenState extends State<CameraScreen> {
       runSpacing: 16.0,
       children: [
         _buildNutrientCircle(
-            '${_nutritionInfo["칼슘"] ?? 0.0} mg', calculatePercentage("칼슘"), '칼슘'),
+          '${(_nutritionInfo["칼슘"] ?? 0.0).toStringAsFixed(1)} mg',
+          calculatePercentage("칼슘"),
+          '칼슘',
+        ),
         _buildNutrientCircle(
-            '${_nutritionInfo["단백질"] ?? 0.0} g', calculatePercentage("단백질"), '단백질'),
+          '${(_nutritionInfo["단백질"] ?? 0.0).toStringAsFixed(1)} g',
+          calculatePercentage("단백질"),
+          '단백질',
+        ),
         _buildNutrientCircle(
-            '${_nutritionInfo["식이섬유"] ?? 0.0} g', calculatePercentage("식이섬유"), '식이섬유'),
-        _buildNutrientCircle('${_nutritionInfo["탄수화물"] ?? 0.0} g',
-            calculatePercentage("탄수화물"), '탄수화물'),
-        _buildNutrientCircle('${_nutritionInfo["비타민C"] ?? 0.0} mg',
-            calculatePercentage("비타민C"), '비타민C'),
+          '${(_nutritionInfo["식이섬유"] ?? 0.0).toStringAsFixed(1)} g',
+          calculatePercentage("식이섬유"),
+          '식이섬유',
+        ),
         _buildNutrientCircle(
-            '${_nutritionInfo["지방"] ?? 0.0} g', calculatePercentage("지방"), '지방'),
-        _buildNutrientCircle('${_nutritionInfo["비타민D"] ?? 0.0} µg',
-            calculatePercentage("비타민D"), '비타민D'),
+          '${(_nutritionInfo["탄수화물"] ?? 0.0).toStringAsFixed(1)} g',
+          calculatePercentage("탄수화물"),
+          '탄수화물',
+        ),
         _buildNutrientCircle(
-            '${_nutritionInfo["당"] ?? 0.0} g', calculatePercentage("당"), '당'),
+          '${(_nutritionInfo["비타민C"] ?? 0.0).toStringAsFixed(1)} mg',
+          calculatePercentage("비타민C"),
+          '비타민C',
+        ),
+        _buildNutrientCircle(
+          '${(_nutritionInfo["지방"] ?? 0.0).toStringAsFixed(1)} g',
+          calculatePercentage("지방"),
+          '지방',
+        ),
+        _buildNutrientCircle(
+          '${(_nutritionInfo["비타민D"] ?? 0.0).toStringAsFixed(1)} µg',
+          calculatePercentage("비타민D"),
+          '비타민D',
+        ),
+        _buildNutrientCircle(
+          '${(_nutritionInfo["당"] ?? 0.0).toStringAsFixed(1)} g',
+          calculatePercentage("당"),
+          '당',
+        ),
       ],
     );
   }
+
 
   Widget _buildNutrientCircle(
       String valueText, double value, String nutrient) {
