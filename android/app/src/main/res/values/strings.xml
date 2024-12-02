@@ -1,6 +1,6 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
     <string name="app_name">mpczerocalorie</string>
-    <string name="foodlens_app_token"></string>
-    <string name="foodlens_company_token"></string>
+    <string name="foodlens_app_token">a2365d7a896d4a24ad0ee9108275ed8b</string>
+    <string name="foodlens_company_token">1f0517ea449d4d4eafd59e01871b9af8</string>
 </resources>

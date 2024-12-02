@@ -28,10 +28,29 @@ class _HomePageState extends State<HomePage> {
 
   // 각 식사별 데이터를 저장할 변수
   Map<String, Map<String, dynamic>> _mealData = {
-    '아침': {'image': null, 'food': '등록된 음식 없음'},
-    '점심': {'image': null, 'food': '등록된 음식 없음'},
-    '저녁': {'image': null, 'food': '등록된 음식 없음'},
+    '아침': {
+      'image': null,
+      'food': '등록된 음식 없음',
+      'nutritionInfo': {},
+      'antiAgingScore': 0.0,
+      'energy': 0,
+    },
+    '점심': {
+      'image': null,
+      'food': '등록된 음식 없음',
+      'nutritionInfo': {},
+      'antiAgingScore': 0.0,
+      'energy': 0,
+    },
+    '저녁': {
+      'image': null,
+      'food': '등록된 음식 없음',
+      'nutritionInfo': {},
+      'antiAgingScore': 0.0,
+      'energy': 0,
+    },
   };
+
   @override
   void initState() {
     super.initState();
@@ -88,25 +107,37 @@ Future<void> _calculateDailySlowAgingScore() async {
   void _onItemTapped(int index) async {
     if (index == 1) {
       // CameraScreen으로 이동
-        final result = await Navigator.push(
+      final result = await Navigator.push(
         context,
         MaterialPageRoute(
           builder: (context) => CameraScreen(),
         ),
-    );
-    if (result != null && result is Map<String, dynamic>) {
-      String mealType = result['mealType'] ?? '아침'; // 기본값 설정
-      setState(() {
-        _mealData[mealType] = {
-          'image': result['imagePath'] != null ? File(result['imagePath']) : null,
-          'food': result['food'] ?? '등록된 음식 없음',
-        };
-        // 칼로리 값 누적
-        int energy = (result['energy'] as num?)?.toInt() ?? 0;
-        _calorieValue += energy;
-      });
-      // 일간 저속 노화 점수 계산 API 호출
-      await _calculateDailySlowAgingScore();
+      );
+
+      if (result != null && result is Map<String, dynamic>) {
+        String mealType = result['mealType'] ?? '아침'; // 기본값 설정
+
+        setState(() {
+          // 기존 값과 새 값을 더하여 업데이트
+          _mealData[mealType] = {
+            'image': result['imagePath'] != null ? File(result['imagePath']) : null,
+            'food': result['food'] ?? '등록된 음식 없음',
+            'nutritionInfo': result['nutritionInfo'] ?? {},
+            'antiAgingScore': (_mealData[mealType]?['antiAgingScore'] ?? 0.0) +
+                (result['antiAgingScore'] ?? 0.0), // 기존 값에 더하기
+            'energy': (_mealData[mealType]?['energy'] ?? 0) +
+                ((result['energy'] as num?)?.toInt() ?? 0), // 기존 값에 더하기
+          };
+
+          // 총 칼로리 누적
+          _calorieValue += (result['energy'] as num?)?.toInt() ?? 0;
+
+          // 저속 노화 점수 업데이트
+          _antiAgingScore += (result['antiAgingScore'] ?? 0.0);
+        });
+
+        // 일간 저속 노화 점수 계산 API 호출
+        await _calculateDailySlowAgingScore();
       }
     } else if (index == 2) {
       // TimerScreen으로 이동
@@ -123,32 +154,35 @@ Future<void> _calculateDailySlowAgingScore() async {
     });
   }
 
-  // CameraScreen으로 이동하여 데이터를 받아오는 함수
-Future<void> _navigateToCamera(String mealType) async {
-  final result = await Navigator.push(
-    context,
-    MaterialPageRoute(
-      builder: (context) => CameraScreen(),
-    ),
-  );
+  Future<void> _navigateToCamera(String mealType) async {
+    final result = await Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (context) => CameraScreen(),
+      ),
+    );
 
-  if (result != null && result is Map<String, dynamic>) {
-    String returnedMealType = result['mealType'] ?? mealType; // 반환된 mealType 사용
-    setState(() {
-      _mealData[returnedMealType] = {
-        'image': result['imagePath'] != null ? File(result['imagePath']) : null,
-        'nutritionInfo': result['nutritionInfo'] ?? {},
-        'antiAgingScore': result['antiAgingScore'] ?? 0.0,
-        'food': result['food'] ?? '등록된 음식 없음',
-      };
-      // 칼로리 값 누적
-      int energy = (result['energy'] as num?)?.toInt() ?? 0;
-      _calorieValue += energy;
-    });
-    // 일간 저속 노화 점수 계산 API 호출
-    await _calculateDailySlowAgingScore();
+    if (result != null && result is Map<String, dynamic>) {
+      String returnedMealType = result['mealType'] ?? mealType;
+
+      setState(() {
+        _mealData[returnedMealType] = {
+          'image': result['imagePath'] != null ? File(result['imagePath']) : null,
+          'food': result['food'] ?? '등록된 음식 없음',
+          'nutritionInfo': result['nutritionInfo'] ?? {},
+          'antiAgingScore': result['antiAgingScore'] ?? 0.0,
+          'energy': (result['energy'] as num?)?.toInt() ?? 0,
+        };
+
+        // 총 칼로리 누적
+        _calorieValue += (result['energy'] as num?)?.toInt() ?? 0;
+      });
+
+      // 일간 저속노화 점수 계산
+      await _calculateDailySlowAgingScore();
+    }
   }
-}
+
 
 
   @override
@@ -328,14 +362,15 @@ Widget _buildMealCard(String mealType) {
   return GestureDetector(
     onTap: () {
       if (mealData != null) {
+      print("Navigating to MealDetailScreen with data: $mealData");
         Navigator.push(
           context,
           MaterialPageRoute(
             builder: (context) => MealDetailScreen(
               mealType: mealType,
               image: mealData['image'],
-              nutritionInfo: mealData['nutritionInfo'],
-              antiAgingScore: mealData['antiAgingScore'],
+              nutritionInfo: mealData['nutritionInfo'] ?? {},
+              antiAgingScore: mealData['antiAgingScore'] ?? 0.0,
             ),
           ),
         );
