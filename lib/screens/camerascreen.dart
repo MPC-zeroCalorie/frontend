@@ -121,16 +121,33 @@ class _CameraScreenState extends State<CameraScreen> {
 
 // 식사 점수 계산 API 호출 및 UI 업데이트
 Future<void> _calculateMealScoreAndUpdateUI() async {
+  // Firebase Storage에서 업로드된 이미지 URL을 가져옵니다.
+  String? imageUrl;
+  if (_image != null) {
+    try {
+      imageUrl = await uploadImageToFirebase(_image!); // 이미지 업로드 메서드 사용
+    } catch (e) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('이미지 업로드 실패: $e')),
+      );
+      return;
+    }
+  }
+
   // 음식 데이터 생성
   Map<String, dynamic> foodItem = {
-    "foodname": _foodController.text,
-    "vitaminC": double.parse((_nutritionInfo["비타민C"] ?? 0.0).toStringAsFixed(1)),
-    "protein": double.parse((_nutritionInfo["단백질"] ?? 0.0).toStringAsFixed(1)),
-    "totalDietaryFiber": double.parse((_nutritionInfo["식이섬유"] ?? 0.0).toStringAsFixed(1)),
-    "energy": double.parse(((_nutritionInfo["탄수화물"] ?? 0.0) * 4 +
-            (_nutritionInfo["단백질"] ?? 0.0) * 4 +
-            (_nutritionInfo["지방"] ?? 0.0) * 9)
-        .toStringAsFixed(1)), // 에너지 계산
+    "name": _foodController.text,
+    "quantity": 1, // 기본 수량
+    "nutritionInfo": {
+      "vitaminC": (_nutritionInfo["비타민C"] ?? 0.0).toDouble(),
+      "protein": (_nutritionInfo["단백질"] ?? 0.0).toDouble(),
+      "fiber": (_nutritionInfo["식이섬유"] ?? 0.0).toDouble(),
+      "energy": ((_nutritionInfo["탄수화물"] ?? 0.0) * 4 +
+              (_nutritionInfo["단백질"] ?? 0.0) * 4 +
+              (_nutritionInfo["지방"] ?? 0.0) * 9)
+          .toDouble(), // 에너지 계산
+    },
+    "imageUrl": imageUrl, // Firebase Storage에서 업로드된 이미지 URL
   };
 
   // 요청 Body 생성
@@ -141,7 +158,10 @@ Future<void> _calculateMealScoreAndUpdateUI() async {
   try {
     final response = await http.post(
       Uri.parse('https://us-central1-slowaging.cloudfunctions.net/calculateMealScore'),
-      headers: {'Content-Type': 'application/json'},
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': 'Bearer $_userToken',
+      },
       body: jsonEncode(body),
     );
 
@@ -153,7 +173,7 @@ Future<void> _calculateMealScoreAndUpdateUI() async {
       // 성공 처리
       final responseBody = jsonDecode(response.body);
       setState(() {
-        _antiAgingScore = (responseBody['mealScore'] as num).toDouble() / 100.0; // 저속노화점수 업데이트
+        _antiAgingScore = (responseBody['mealScore'] as num).toDouble() / 100.0; // 저속 노화 점수 업데이트
       });
 
       ScaffoldMessenger.of(context).showSnackBar(
@@ -169,12 +189,13 @@ Future<void> _calculateMealScoreAndUpdateUI() async {
       );
     }
   } catch (e) {
-    // 예외 처리
+    // 네트워크 또는 기타 예외 처리
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(content: Text('네트워크 오류 발생: $e')),
     );
   }
 }
+
 
   // 비율 계산 함수
   double calculatePercentage(String nutrient) {
